@@ -1,0 +1,1971 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WMS — Phần mềm Quản lý Kho | Nhóm 7</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Be+Vietnam+Pro:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #0b0e14;
+    --surface: #111620;
+    --surface2: #161c2a;
+    --border: #1e2a3d;
+    --accent: #00d4ff;
+    --accent2: #0098cc;
+    --green: #00e676;
+    --red: #ff4757;
+    --yellow: #ffd32a;
+    --text: #e0e8f0;
+    --text-dim: #7a90a8;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'Be Vietnam Pro', sans-serif;
+    --sidebar: 220px;
+    --radius: 8px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+  }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+    width: var(--sidebar);
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+
+  .logo {
+    padding: 20px 16px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+  .logo-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  nav { flex: 1; padding: 12px 0; overflow-y: auto; }
+
+  .nav-section {
+    font-family: var(--mono);
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--text-dim);
+    padding: 12px 16px 4px;
+    text-transform: uppercase;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-dim);
+    transition: all .15s;
+    border-left: 2px solid transparent;
+    position: relative;
+  }
+  .nav-item:hover { color: var(--text); background: var(--surface2); }
+  .nav-item.active {
+    color: var(--accent);
+    background: rgba(0,212,255,.06);
+    border-left-color: var(--accent);
+  }
+  .nav-item .icon { font-size: 15px; width: 18px; text-align: center; }
+  .nav-badge {
+    position: absolute; right: 12px;
+    background: var(--red); color: #fff;
+    font-family: var(--mono); font-size: 9px;
+    border-radius: 10px; padding: 1px 6px;
+    min-width: 18px; text-align: center;
+  }
+
+  .user-info {
+    padding: 14px 16px;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; gap: 10px;
+  }
+  .avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: #000; flex-shrink: 0;
+  }
+  .user-name { font-size: 12px; font-weight: 600; }
+  .user-role { font-size: 10px; color: var(--accent); font-family: var(--mono); }
+
+  /* ── MAIN ── */
+  #main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  #topbar {
+    padding: 12px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface);
+    flex-shrink: 0;
+  }
+  .page-title { font-size: 16px; font-weight: 700; }
+  .page-subtitle { font-size: 11px; color: var(--text-dim); font-family: var(--mono); margin-top: 1px; }
+
+  .topbar-right { display: flex; gap: 10px; align-items: center; }
+
+  #content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    scroll-behavior: smooth;
+  }
+
+  /* ── PANELS ── */
+  .panel { display: none; }
+  .panel.active { display: block; animation: fadeIn .2s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── CARDS ── */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px; margin-bottom: 24px;
+  }
+  .kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px;
+    position: relative;
+    overflow: hidden;
+  }
+  .kpi-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  }
+  .kpi-card.blue::before { background: var(--accent); }
+  .kpi-card.green::before { background: var(--green); }
+  .kpi-card.yellow::before { background: var(--yellow); }
+  .kpi-card.red::before { background: var(--red); }
+
+  .kpi-label { font-size: 10px; font-family: var(--mono); color: var(--text-dim); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+  .kpi-value { font-size: 26px; font-weight: 700; font-family: var(--mono); }
+  .kpi-value.blue { color: var(--accent); }
+  .kpi-value.green { color: var(--green); }
+  .kpi-value.yellow { color: var(--yellow); }
+  .kpi-value.red { color: var(--red); }
+  .kpi-sub { font-size: 11px; color: var(--text-dim); margin-top: 4px; }
+
+  /* ── TABLE ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 20px;
+  }
+  .card-header {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-title { font-size: 13px; font-weight: 600; }
+  .card-body { padding: 0; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  thead th {
+    padding: 10px 16px;
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface2);
+  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; cursor: default; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+  td { padding: 10px 16px; vertical-align: middle; }
+
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: var(--mono); font-size: 10px; font-weight: 600;
+    padding: 2px 8px; border-radius: 4px;
+  }
+  .badge.import { background: rgba(0,230,118,.12); color: var(--green); }
+  .badge.export { background: rgba(255,71,87,.12); color: var(--red); }
+  .badge.ok { background: rgba(0,212,255,.12); color: var(--accent); }
+  .badge.warn { background: rgba(255,211,42,.12); color: var(--yellow); }
+  .badge.admin { background: rgba(0,212,255,.15); color: var(--accent); }
+  .badge.staff { background: rgba(122,144,168,.12); color: var(--text-dim); }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: var(--radius);
+    font-family: var(--sans); font-size: 12px; font-weight: 600;
+    cursor: pointer; border: none; transition: all .15s;
+  }
+  .btn-primary { background: var(--accent); color: #000; }
+  .btn-primary:hover { background: #00bbee; }
+  .btn-ghost {
+    background: transparent; color: var(--text-dim);
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { color: var(--text); border-color: var(--text-dim); }
+  .btn-danger { background: rgba(255,71,87,.15); color: var(--red); border: 1px solid rgba(255,71,87,.3); }
+  .btn-danger:hover { background: rgba(255,71,87,.25); }
+  .btn-success { background: rgba(0,230,118,.15); color: var(--green); border: 1px solid rgba(0,230,118,.3); }
+  .btn-success:hover { background: rgba(0,230,118,.25); }
+  .btn-sm { padding: 4px 10px; font-size: 11px; }
+
+  /* ── INPUTS ── */
+  input, select, textarea {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 13px;
+    padding: 8px 12px;
+    outline: none;
+    transition: border-color .15s;
+    width: 100%;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+  select option { background: var(--surface2); }
+
+  .form-group { margin-bottom: 14px; }
+  .form-label { font-size: 11px; font-family: var(--mono); color: var(--text-dim); margin-bottom: 5px; display: block; letter-spacing: .5px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
+  /* ── MODAL ── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.7);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    display: none; align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    width: 480px; max-width: 95vw;
+    max-height: 90vh; overflow-y: auto;
+    animation: slideUp .2s ease;
+  }
+  @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+  .modal-title { font-size: 15px; font-weight: 700; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; }
+  .modal-close { cursor: pointer; color: var(--text-dim); font-size: 18px; }
+  .modal-close:hover { color: var(--text); }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
+
+  /* ── TOAST ── */
+  #toast-container {
+    position: fixed; bottom: 24px; right: 24px;
+    display: flex; flex-direction: column; gap: 8px;
+    z-index: 999;
+  }
+  .toast {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    font-size: 12.5px;
+    display: flex; align-items: center; gap: 8px;
+    animation: slideRight .25s ease;
+    min-width: 280px;
+  }
+  @keyframes slideRight { from { transform: translateX(40px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  .toast.success { border-color: rgba(0,230,118,.4); }
+  .toast.error { border-color: rgba(255,71,87,.4); }
+  .toast.info { border-color: rgba(0,212,255,.4); }
+
+  /* ── SEARCH BAR ── */
+  .search-bar { display: flex; gap: 10px; margin-bottom: 16px; align-items: center; }
+  .search-input-wrap { flex: 1; position: relative; }
+  .search-input-wrap input { padding-left: 34px; }
+  .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-dim); font-size: 14px; }
+
+  /* ── WARN PANEL ── */
+  .warn-list { display: flex; flex-direction: column; gap: 6px; padding: 12px 16px; }
+  .warn-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px;
+    background: rgba(255,211,42,.06);
+    border: 1px solid rgba(255,211,42,.2);
+    border-radius: var(--radius);
+    font-size: 12px;
+  }
+  .warn-item-name { font-weight: 600; }
+  .warn-item-qty { font-family: var(--mono); color: var(--yellow); font-size: 11px; }
+
+  /* ── LOGIN ── */
+  #login-screen {
+    position: fixed; inset: 0;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 999;
+  }
+  .login-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 36px;
+    width: 360px;
+    animation: fadeIn .3s ease;
+  }
+  .login-title { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .login-sub { font-size: 11px; color: var(--text-dim); font-family: var(--mono); margin-bottom: 28px; }
+  .login-err { color: var(--red); font-size: 12px; margin-top: 10px; display: none; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+
+  /* Sparkline placeholder */
+  .stat-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+  .stat-row:last-child { border-bottom: none; }
+
+  /* Transaction type tag in form */
+  .type-toggle { display: flex; gap: 8px; margin-bottom: 14px; }
+  .type-btn {
+    flex: 1; padding: 8px; border-radius: var(--radius);
+    text-align: center; font-size: 12px; font-weight: 600;
+    cursor: pointer; border: 1px solid var(--border);
+    color: var(--text-dim); background: var(--surface2);
+    transition: all .15s;
+  }
+  .type-btn.selected-import { background: rgba(0,230,118,.15); color: var(--green); border-color: rgba(0,230,118,.4); }
+  .type-btn.selected-export { background: rgba(255,71,87,.15); color: var(--red); border-color: rgba(255,71,87,.4); }
+
+  .empty-state {
+    text-align: center; padding: 40px;
+    color: var(--text-dim); font-size: 13px;
+  }
+  .empty-state .icon { font-size: 36px; margin-bottom: 8px; }
+
+  /* ── KIỂM KHO (INVENTORY AUDIT) ── */
+  .audit-status-bar {
+    display: flex; align-items: center; gap: 16px;
+    padding: 12px 18px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+table {
+    table-layout: fixed;
+}
+  .audit-stat { display: flex; align-items: center; gap: 6px; }
+  .audit-stat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .audit-stat-dot.match   { background: var(--green); }
+  .audit-stat-dot.diff    { background: var(--red); }
+  .audit-stat-dot.pending { background: var(--text-dim); }
+
+  .audit-input-cell { width: 100px; }
+  .audit-input-cell input {
+    padding: 6px 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    text-align: right;
+    width: 130%;
+  }
+  .audit-diff-pos { color: var(--green); font-family: var(--mono); font-weight: 700; }
+  .audit-diff-neg { color: var(--red);   font-family: var(--mono); font-weight: 700; }
+  .audit-diff-zero { color: var(--text-dim); font-family: var(--mono); }
+
+  .audit-note-input { width: 100%; }
+  .audit-note-input input { padding: 5px 8px; font-size: 12px; }
+
+  /* page refresh indicator */
+  .refresh-spinner {
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+   
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="login-box">
+    <div style="margin-bottom:20px;">
+      <div style="font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:2px;margin-bottom:6px;">WMS v1.0 — NHÓM 7</div>
+      <div class="login-title">Đăng nhập hệ thống</div>
+      <div class="login-sub">PHẦN MỀM QUẢN LÝ KHO HÀNG</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">TÀI KHOẢN</label>
+      <input type="text" id="login-user" placeholder="admin hoặc staff" value="admin">
+    </div>
+    <div class="form-group">
+      <label class="form-label">MẬT KHẨU</label>
+      <input type="password" id="login-pass" placeholder="••••••••" value="Admin@123">
+    </div>
+    <div class="login-err" id="login-err">❌ Tài khoản hoặc mật khẩu không đúng</div>
+    <button class="btn btn-primary" style="width:100%;margin-top:16px;justify-content:center;" onclick="doLogin()">Đăng nhập →</button>
+    <div style="margin-top:14px;font-size:11px;color:var(--text-dim);text-align:center;">
+      Demo: <code style="color:var(--accent)">admin / Admin@123</code> &nbsp;|&nbsp; <code style="color:var(--text-dim)">staff / Staff@123</code>
+    </div>
+  </div>
+</div>
+
+<!-- SIDEBAR -->
+<div id="sidebar">
+  <div class="logo">
+    <div class="logo-badge">▶ WMS v1.0</div>
+    <div class="logo-title">Quản lý Kho Hàng</div>
+  </div>
+  <nav>
+    <div class="nav-section">Tổng quan</div>
+    <div class="nav-item active" onclick="showPanel('dashboard', this)">
+      <span class="icon">📊</span> Dashboard
+    </div>
+
+    <div class="nav-section">Nghiệp vụ</div>
+    <div class="nav-item" onclick="showPanel('products', this)">
+      <span class="icon">📦</span> Hàng hóa
+      <span class="nav-badge" id="warn-badge" style="display:none">0</span>
+    </div>
+    <div class="nav-item" onclick="showPanel('transactions', this)">
+      <span class="icon">↕️</span> Nhập / Xuất kho
+    </div>
+    <div class="nav-item" onclick="showPanel('suppliers', this)">
+      <span class="icon">🏭</span> Nhà cung cấp
+    </div>
+    <div class="nav-item" onclick="showPanel('audit', this)">
+      <span class="icon">🔎</span> Kiểm kho
+      <span class="nav-badge" id="audit-badge" style="display:none">!</span>
+    </div>
+
+    <div class="nav-section">Phân tích</div>
+    <div class="nav-item" onclick="showPanel('reports', this)">
+      <span class="icon">📈</span> Báo cáo
+    </div>
+
+    <div class="nav-section admin-only">Quản trị</div>
+    <div class="nav-item admin-only" onclick="showPanel('users', this)">
+      <span class="icon">👤</span> Người dùng
+    </div>
+  </nav>
+  <div class="user-info">
+    <div class="avatar" id="avatar-initials">A</div>
+    <div>
+      <div class="user-name" id="user-display">Admin</div>
+      <div class="user-role" id="role-display">ADMIN</div>
+    </div>
+    <button class="btn btn-ghost btn-sm" style="margin-left:auto;" onclick="doLogout()">↩</button>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+  <div id="topbar">
+    <div>
+      <div class="page-title" id="page-title">Dashboard</div>
+      <div class="page-subtitle" id="page-subtitle">Tổng quan hệ thống kho hàng</div>
+    </div>
+    <div class="topbar-right">
+      <div style="font-family:var(--mono);font-size:11px;color:var(--text-dim)" id="clock"></div>
+    </div>
+  </div>
+
+  <div id="content">
+
+    <!-- DASHBOARD -->
+    <div class="panel active" id="panel-dashboard">
+      <div class="kpi-grid">
+        <div class="kpi-card blue">
+          <div class="kpi-label">Tổng sản phẩm</div>
+          <div class="kpi-value blue" id="kpi-total-products">0</div>
+          <div class="kpi-sub">mặt hàng đang quản lý</div>
+        </div>
+        <div class="kpi-card green">
+          <div class="kpi-label">Giá trị kho</div>
+          <div class="kpi-value green" id="kpi-total-value">0₫</div>
+          <div class="kpi-sub">tổng tồn kho hiện tại</div>
+        </div>
+        <div class="kpi-card yellow">
+          <div class="kpi-label">Giao dịch hôm nay</div>
+          <div class="kpi-value yellow" id="kpi-today-tx">0</div>
+          <div class="kpi-sub">nhập + xuất kho</div>
+        </div>
+        <div class="kpi-card red">
+          <div class="kpi-label">Cảnh báo tồn thấp</div>
+          <div class="kpi-value red" id="kpi-warn">0</div>
+          <div class="kpi-sub">sản phẩm cần nhập thêm</div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">🕓 Giao dịch gần nhất</div>
+          </div>
+          <div class="card-body">
+            <table>
+              <thead><tr>
+                <th>Mã GD</th><th>Hàng hóa</th><th>Loại</th><th>SL</th><th>Ngày</th>
+              </tr></thead>
+              <tbody id="recent-tx-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">⚠️ Cảnh báo tồn thấp</div>
+          </div>
+          <div class="warn-list" id="warn-list-dashboard"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">📋 Thống kê sản phẩm theo danh mục</div></div>
+        <div class="card-body" id="category-stats" style="padding:16px;"></div>
+      </div>
+    </div>
+
+    <!-- PRODUCTS -->
+    <div class="panel" id="panel-products">
+      <div class="search-bar">
+        <div class="search-input-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" placeholder="Tìm theo tên, mã sản phẩm..." id="product-search" oninput="renderProducts()">
+        </div>
+        <select id="product-filter-cat" onchange="renderProducts()" style="width:160px;">
+          <option value="">Tất cả danh mục</option>
+        </select>
+        <select id="product-filter-stock" onchange="renderProducts()" style="width:140px;">
+          <option value="">Tất cả tồn kho</option>
+          <option value="ok">Đủ hàng</option>
+          <option value="low">Sắp hết</option>
+        </select>
+        <button class="btn btn-primary admin-only" onclick="openProductModal()">+ Thêm sản phẩm</button>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <table>
+            <thead><tr>
+              <th>Mã SP</th><th>Tên sản phẩm</th><th>Danh mục</th><th>Đơn vị</th>
+              <th>Tồn kho</th><th>Tồn min</th><th>Đơn giá</th><th>Trạng thái</th><th>Thao tác</th>
+            </tr></thead>
+            <tbody id="product-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TRANSACTIONS -->
+    <div class="panel" id="panel-transactions">
+      <div class="search-bar">
+        <div class="search-input-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" placeholder="Tìm theo mã giao dịch, tên hàng..." id="tx-search" oninput="renderTransactions()">
+        </div>
+        <select id="tx-filter" onchange="renderTransactions()" style="width:140px;">
+          <option value="">Tất cả</option>
+          <option value="Import">Nhập kho</option>
+          <option value="Export">Xuất kho</option>
+        </select>
+        <button class="btn btn-success" onclick="openTxModal('Import')">📥 Nhập kho</button>
+        <button class="btn btn-danger" onclick="openTxModal('Export')">📤 Xuất kho</button>
+      </div>
+
+      <div class="card">
+        <div class="card-body">
+          <table>
+            <thead><tr>
+              <th>Mã GD</th><th>Loại</th><th>Sản phẩm</th><th>Số lượng</th>
+              <th>Đơn giá</th><th>Thành tiền</th><th>Người thực hiện</th><th>Ngày giờ</th><th>Ghi chú</th>
+            </tr></thead>
+            <tbody id="tx-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SUPPLIERS -->
+    <div class="panel" id="panel-suppliers">
+      <div class="search-bar">
+        <div class="search-input-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" placeholder="Tìm nhà cung cấp..." id="sup-search" oninput="renderSuppliers()">
+        </div>
+        <button class="btn btn-primary admin-only" onclick="openSupModal()">+ Thêm NCC</button>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <table>
+            <thead><tr>
+              <th>Mã NCC</th><th>Tên nhà cung cấp</th><th>Điện thoại</th><th>Email</th><th>Địa chỉ</th><th>Thao tác</th>
+            </tr></thead>
+            <tbody id="sup-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUDIT — KIỂM KHO -->
+    <div class="panel" id="panel-audit">
+      <div class="search-bar">
+        <div class="search-input-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" placeholder="Lọc theo tên, mã sản phẩm..." id="audit-search" oninput="filterAuditTable()">
+        </div>
+        <select id="audit-filter-cat" onchange="filterAuditTable()" style="width:160px;">
+          <option value="">Tất cả danh mục</option>
+        </select>
+        <select id="audit-filter-diff" onchange="filterAuditTable()" style="width:160px;">
+          <option value="">Tất cả trạng thái</option>
+          <option value="diff">Có chênh lệch</option>
+          <option value="match">Khớp</option>
+          <option value="pending">Chưa nhập</option>
+        </select>
+        <button class="btn btn-ghost btn-sm" onclick="renderAudit()">🔄 Tải lại</button>
+        <button class="btn btn-success" onclick="confirmAudit()">✅ Xác nhận kiểm kho</button>
+        <button class="btn btn-ghost btn-sm" onclick="exportAuditExcel()">📊 Xuất Excel</button>
+      </div>
+
+      <!-- Status tổng quan -->
+      <div class="card" style="margin-bottom:16px;">
+        <div class="audit-status-bar" id="audit-status-bar">
+          <span style="color:var(--text-dim);font-family:var(--mono);">Đang tải dữ liệu kiểm kho...</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📋 Phiếu kiểm kho — <span id="audit-date" style="font-family:var(--mono);font-size:11px;color:var(--text-dim)"></span></div>
+          <div style="font-size:11px;color:var(--text-dim)">Nhập <strong>Tồn thực tế</strong> vào ô trống để so sánh với hệ thống</div>
+        </div>
+        <div class="card-body">
+          <table>
+            <thead><tr>
+              <th>Mã SP</th>
+              <th>Tên sản phẩm</th>
+              <th>Danh mục</th>
+              <th>ĐVT</th>
+              <th style="text-align:right">Tồn HT</th>
+              <th style="text-align:right">Tồn thực tế</th>
+              <th style="text-align:right">Chênh lệch</th>
+              <th>Ghi chú</th>
+              <th>Trạng thái</th>
+            </tr></thead>
+            <tbody id="audit-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Kết quả kiểm kho đã xác nhận -->
+      <div class="card" id="audit-result-card" style="display:none">
+        <div class="card-header">
+          <div class="card-title">📝 Kết quả kiểm kho gần nhất</div>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('audit-result-card').style.display='none'">✕ Đóng</button>
+        </div>
+        <div class="card-body" id="audit-result-body" style="padding:16px;"></div>
+      </div>
+    </div>
+
+    <!-- REPORTS -->
+    <div class="panel" id="panel-reports">
+      <div class="grid-2" style="margin-bottom:20px;">
+        <div class="card">
+          <div class="card-header"><div class="card-title">📊 Tổng hợp nhập/xuất kho</div></div>
+          <div class="card-body" id="report-summary" style="padding:16px;"></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">🏆 Top 5 hàng hóa tồn nhiều nhất</div></div>
+          <div class="card-body" id="report-top5" style="padding:16px;"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📋 Lịch sử giao dịch đầy đủ</div>
+          <button class="btn btn-ghost btn-sm" onclick="exportExcel()">📊 Xuất Excel</button>
+        </div>
+        <div class="card-body">
+          <table>
+            <thead><tr>
+              <th>Mã GD</th><th>Loại</th><th>Sản phẩm</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th><th>Người thực hiện</th><th>Ngày giờ</th>
+            </tr></thead>
+            <tbody id="report-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- USERS -->
+    <div class="panel" id="panel-users">
+      <div class="search-bar">
+        <div class="search-input-wrap">
+          <span class="search-icon">🔍</span>
+          <input type="text" placeholder="Tìm người dùng..." id="user-search" oninput="renderUsers()">
+        </div>
+        <button class="btn btn-primary" onclick="openUserModal()">+ Thêm người dùng</button>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <table>
+            <thead><tr>
+              <th>Mã</th><th>Tên đăng nhập</th><th>Họ và tên</th><th>Vai trò</th><th>Ngày tạo</th><th>Thao tác</th>
+            </tr></thead>
+            <tbody id="user-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /content -->
+</div><!-- /main -->
+
+<!-- PRODUCT MODAL -->
+<div class="modal-overlay" id="modal-product">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="product-modal-title">Thêm sản phẩm</span>
+      <span class="modal-close" onclick="closeModal('modal-product')">✕</span>
+    </div>
+    <input type="hidden" id="pm-id">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">TÊN SẢN PHẨM *</label>
+        <input type="text" id="pm-name" placeholder="VD: Laptop Dell XPS 13">
+      </div>
+      <div class="form-group">
+        <label class="form-label">DANH MỤC *</label>
+        <input type="text" id="pm-category" placeholder="VD: Điện tử">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">ĐƠN VỊ *</label>
+        <input type="text" id="pm-unit" placeholder="Chiếc, Kg, Thùng...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">ĐƠN GIÁ (VND) *</label>
+        <input type="number" id="pm-price" min="0" placeholder="0">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">TỒN KHO BAN ĐẦU</label>
+        <input type="number" id="pm-qty" min="0" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">TỒN TỐI THIỂU *</label>
+        <input type="number" id="pm-min-qty" min="0" placeholder="0">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">NHÀ CUNG CẤP</label>
+      <select id="pm-supplier">
+        <option value="">-- Chọn nhà cung cấp --</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-product')">Hủy</button>
+      <button class="btn btn-primary" onclick="saveProduct()">Lưu sản phẩm</button>
+    </div>
+  </div>
+</div>
+
+<!-- TRANSACTION MODAL -->
+<div class="modal-overlay" id="modal-tx">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="tx-modal-title">Phiếu Nhập Kho</span>
+      <span class="modal-close" onclick="closeModal('modal-tx')">✕</span>
+    </div>
+    <div class="type-toggle">
+      <div class="type-btn selected-import" id="type-import" onclick="setTxType('Import')">📥 NHẬP KHO</div>
+      <div class="type-btn" id="type-export" onclick="setTxType('Export')">📤 XUẤT KHO</div>
+    </div>
+    <input type="hidden" id="tx-type" value="Import">
+    <div class="form-group">
+      <label class="form-label">SẢN PHẨM *</label>
+      <select id="tx-product" onchange="onTxProductChange()">
+        <option value="">-- Chọn sản phẩm --</option>
+      </select>
+    </div>
+    <div id="tx-stock-info" style="font-size:11px;color:var(--text-dim);margin-bottom:12px;font-family:var(--mono);"></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">SỐ LƯỢNG *</label>
+        <input type="number" id="tx-qty" min="1" placeholder="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">ĐƠN GIÁ (VND)</label>
+        <input type="number" id="tx-price" min="0" placeholder="0">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">GHI CHÚ</label>
+      <input type="text" id="tx-note" placeholder="Lý do nhập/xuất, nơi giao...">
+    </div>
+    <div id="tx-total-preview" style="text-align:right;font-family:var(--mono);font-size:13px;color:var(--accent);margin-bottom:4px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-tx')">Hủy</button>
+      <button class="btn btn-primary" id="tx-submit-btn" onclick="saveTx()">Xác nhận Nhập kho</button>
+    </div>
+  </div>
+</div>
+
+<!-- SUPPLIER MODAL -->
+<div class="modal-overlay" id="modal-supplier">
+  <div class="modal">
+    <div class="modal-title">
+      <span id="sup-modal-title">Thêm nhà cung cấp</span>
+      <span class="modal-close" onclick="closeModal('modal-supplier')">✕</span>
+    </div>
+    <input type="hidden" id="sm-id">
+    <div class="form-group">
+      <label class="form-label">TÊN NHÀ CUNG CẤP *</label>
+      <input type="text" id="sm-name" placeholder="Tên công ty / cá nhân">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">ĐIỆN THOẠI</label>
+        <input type="text" id="sm-phone" placeholder="0901234567">
+      </div>
+      <div class="form-group">
+        <label class="form-label">EMAIL</label>
+        <input type="email" id="sm-email" placeholder="contact@company.com">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">ĐỊA CHỈ</label>
+      <input type="text" id="sm-addr" placeholder="Địa chỉ chi tiết">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-supplier')">Hủy</button>
+      <button class="btn btn-primary" onclick="saveSupplier()">Lưu nhà cung cấp</button>
+    </div>
+  </div>
+</div>
+
+<!-- USER MODAL -->
+<div class="modal-overlay" id="modal-user">
+  <div class="modal">
+    <div class="modal-title">
+      <span>Thêm người dùng</span>
+      <span class="modal-close" onclick="closeModal('modal-user')">✕</span>
+    </div>
+    <div class="form-group">
+      <label class="form-label">TÊN ĐĂNG NHẬP *</label>
+      <input type="text" id="um-username" placeholder="username">
+    </div>
+    <div class="form-group">
+      <label class="form-label">HỌ VÀ TÊN</label>
+      <input type="text" id="um-fullname" placeholder="Nguyễn Văn A">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">MẬT KHẨU *</label>
+        <input type="password" id="um-password" placeholder="••••••••">
+      </div>
+      <div class="form-group">
+        <label class="form-label">VAI TRÒ</label>
+        <select id="um-role">
+          <option value="Staff">Staff</option>
+          <option value="Admin">Admin</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-user')">Hủy</button>
+      <button class="btn btn-primary" onclick="saveUser()">Tạo tài khoản</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════
+//  CẤU HÌNH — đổi URL này nếu backend chạy trên server khác
+// ══════════════════════════════════════════════════════════
+const API = 'http://localhost:5000/api';
+
+let token = localStorage.getItem('wms_jwt');
+let currentUser = JSON.parse(localStorage.getItem('wms_user') || 'null');
+
+// ══════════════════════════════════════════════════════════
+//  HELPER: Gọi API với JWT tự động
+// ══════════════════════════════════════════════════════════
+async function api(path, opts = {}) {
+  try {
+    const res = await fetch(API + path, {
+      ...opts,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        ...(opts.headers || {})
+      }
+    });
+    if (res.status === 401) { doLogout(); showToast('Phiên đăng nhập hết hạn', 'error'); return null; }
+    if (res.status === 403) { showToast('Bạn không có quyền thực hiện thao tác này', 'error'); return null; }
+    if (res.status === 204) return true;
+    const data = await res.json();
+    if (!res.ok) { showToast(data.message || data.title || 'Lỗi không xác định', 'error'); return null; }
+    return data;
+  } catch (e) {
+    showToast('Không thể kết nối server. Kiểm tra backend đang chạy chưa.', 'error');
+    return null;
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  HELPERS UI
+// ══════════════════════════════════════════════════════════
+function fmtMoney(n) { return Number(n || 0).toLocaleString('vi-VN') + '₫'; }
+function fmtDate(d) { return d ? d.slice(0, 16).replace('T', ' ') : '—'; }
+
+function showToast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+  el.innerHTML = `<span>${icons[type] || 'ℹ️'}</span> ${msg}`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 3500);
+}
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ══════════════════════════════════════════════════════════
+//  AUTH
+// ══════════════════════════════════════════════════════════
+async function doLogin() {
+  const username = document.getElementById('login-user').value.trim();
+  const password = document.getElementById('login-pass').value;
+  const errEl    = document.getElementById('login-err');
+
+  const res = await fetch(API + '/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, password })
+  });
+
+  if (!res.ok) { errEl.style.display = 'block'; return; }
+  errEl.style.display = 'none';
+
+  const data = await res.json();
+  token = data.token;
+  currentUser = { id: data.userId, role: data.role, fullName: data.fullName };
+  localStorage.setItem('wms_jwt', token);
+  localStorage.setItem('wms_user', JSON.stringify(currentUser));
+
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('user-display').textContent = data.fullName;
+  document.getElementById('role-display').textContent = data.role.toUpperCase();
+  document.getElementById('avatar-initials').textContent = (data.fullName || 'U')[0];
+
+  document.querySelectorAll('.admin-only').forEach(el =>
+    el.style.display = data.role === 'Admin' ? '' : 'none');
+
+  showPanel('dashboard');
+}
+
+async function doLogout() {
+  await api('/auth/logout', { method: 'POST' });
+  token = null; currentUser = null;
+  localStorage.removeItem('wms_jwt');
+  localStorage.removeItem('wms_user');
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('login-err').style.display = 'none';
+  document.getElementById('login-user').value = 'admin';
+  document.getElementById('login-pass').value = 'Admin@123';
+}
+
+// ══════════════════════════════════════════════════════════
+//  NAVIGATION
+// ══════════════════════════════════════════════════════════
+const panelTitles = {
+  dashboard:    ['Dashboard', 'Tổng quan hệ thống kho hàng'],
+  products:     ['Hàng hóa', 'Danh sách sản phẩm trong kho'],
+  transactions: ['Nhập / Xuất Kho', 'Lịch sử phiếu giao dịch'],
+  suppliers:    ['Nhà cung cấp', 'Danh sách đối tác cung ứng'],
+  audit:        ['Kiểm kho', 'Đối chiếu tồn kho thực tế & hệ thống'],
+  reports:      ['Báo cáo', 'Thống kê & phân tích kho hàng'],
+  users:        ['Người dùng', 'Quản lý tài khoản hệ thống'],
+};
+
+// Track current panel to avoid duplicate loads
+let _currentPanel = null;
+
+function showPanel(name, el) {
+  // Refresh: reload data mỗi khi chuyển tab (kể cả tab hiện tại nếu click lại)
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  if (el) el.classList.add('active');
+  else {
+    // Tự tìm nav-item tương ứng (khi gọi showPanel không kèm element)
+    document.querySelectorAll('.nav-item').forEach(n => {
+      if (n.getAttribute('onclick') && n.getAttribute('onclick').includes(`'${name}'`))
+        n.classList.add('active');
+    });
+  }
+  const [title, sub] = panelTitles[name] || [name, ''];
+  document.getElementById('page-title').textContent = title;
+  document.getElementById('page-subtitle').textContent = sub;
+
+  _currentPanel = name;
+
+  // Hiện loading nhỏ trên topbar
+  showTopbarRefresh();
+
+  if (name === 'dashboard')    refreshDashboard();
+  if (name === 'products')     renderProducts();
+  if (name === 'transactions') renderTransactions();
+  if (name === 'suppliers')    renderSuppliers();
+  if (name === 'audit')        renderAudit();
+  if (name === 'reports')      renderReports();
+  if (name === 'users')        renderUsers();
+}
+
+// Chớp nhẹ icon refresh trên topbar khi chuyển trang
+function showTopbarRefresh() {
+  const clock = document.getElementById('clock');
+  const orig = clock.innerHTML;
+  clock.innerHTML = `<span class="refresh-spinner"></span>${orig}`;
+  setTimeout(() => { clock.innerHTML = orig; }, 700);
+}
+
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleDateString('vi-VN') + ' ' + now.toLocaleTimeString('vi-VN');
+}
+
+// ══════════════════════════════════════════════════════════
+//  DASHBOARD — GET /api/reports/dashboard
+// ══════════════════════════════════════════════════════════
+async function refreshDashboard() {
+  const data = await api('/reports/dashboard');
+  if (!data) return;
+
+  document.getElementById('kpi-total-products').textContent = data.totalProducts;
+  document.getElementById('kpi-total-value').textContent    = fmtMoney(data.totalValue);
+  document.getElementById('kpi-today-tx').textContent       = data.todayTx;
+  document.getElementById('kpi-warn').textContent           = data.lowStockCount;
+
+  // Giao dịch gần nhất
+  const tbody = document.getElementById('recent-tx-tbody');
+  const recent = data.recentTx || [];
+  tbody.innerHTML = recent.length === 0
+    ? '<tr><td colspan="5" class="empty-state">Chưa có giao dịch</td></tr>'
+    : recent.map(t => {
+        const item = t.items && t.items[0];
+        return `<tr>
+          <td style="font-family:var(--mono);font-size:11px;color:var(--text-dim)">${t.id.slice(-6)}</td>
+          <td>${item ? item.productName : '—'}</td>
+          <td><span class="badge ${t.type === 'Import' ? 'import' : 'export'}">${t.type === 'Import' ? '↓ Nhập' : '↑ Xuất'}</span></td>
+          <td style="font-family:var(--mono)">${item ? item.quantity : '—'}</td>
+          <td style="font-size:11px;color:var(--text-dim)">${fmtDate(t.createdAt)}</td>
+        </tr>`;
+      }).join('');
+
+  // Cảnh báo tồn thấp
+  const warnList = document.getElementById('warn-list-dashboard');
+  const warns = data.lowStockItems || [];
+  warnList.innerHTML = warns.length === 0
+    ? '<div class="empty-state"><div>✅</div>Tồn kho đều đủ</div>'
+    : warns.map(p => `
+      <div class="warn-item">
+        <div>
+          <div class="warn-item-name">${p.name}</div>
+          <div style="font-size:10px;color:var(--text-dim)">${p.id}</div>
+        </div>
+        <div class="warn-item-qty">${p.quantity} / ${p.minQuantity} ${p.unit}</div>
+      </div>`).join('');
+
+  updateWarnBadge(data.lowStockCount);
+}
+
+function updateWarnBadge(count) {
+  const badge = document.getElementById('warn-badge');
+  if (count > 0) { badge.style.display = ''; badge.textContent = count; }
+  else badge.style.display = 'none';
+}
+
+// ══════════════════════════════════════════════════════════
+//  SẢN PHẨM — CRUD đầy đủ qua API
+// ══════════════════════════════════════════════════════════
+async function renderProducts() {
+  const search = document.getElementById('product-search').value;
+  const cat    = document.getElementById('product-filter-cat').value;
+  const stock  = document.getElementById('product-filter-stock').value;
+
+  let url = '/products?pageSize=100';
+  if (search) url += `&search=${encodeURIComponent(search)}`;
+  if (cat)    url += `&category=${encodeURIComponent(cat)}`;
+  if (stock)  url += `&stock=${stock}`;
+
+  const data = await api(url);
+  if (!data) return;
+
+  // Cập nhật dropdown danh mục
+  const catSel = document.getElementById('product-filter-cat');
+  const curCat = catSel.value;
+  const cats = [...new Set((data.items || []).map(p => p.category))].sort();
+  catSel.innerHTML = '<option value="">Tất cả danh mục</option>' +
+    cats.map(c => `<option value="${c}" ${c === curCat ? 'selected' : ''}>${c}</option>`).join('');
+
+  const isAdmin = currentUser && currentUser.role === 'Admin';
+  const tbody = document.getElementById('product-tbody');
+  const items = data.items || [];
+  tbody.innerHTML = items.length === 0
+    ? '<tr><td colspan="9"><div class="empty-state"><div class="icon">📦</div>Không tìm thấy sản phẩm</div></td></tr>'
+    : items.map(p => {
+        const isLow = p.isLowStock;
+        return `<tr>
+          <td style="font-family:var(--mono);font-size:11px;color:var(--text-dim)">${p.id}</td>
+          <td><strong>${p.name}</strong><div style="font-size:10px;color:var(--text-dim)">${p.supplierName || '—'}</div></td>
+          <td>${p.category}</td>
+          <td>${p.unit}</td>
+          <td style="font-family:var(--mono);font-weight:600;color:${isLow ? 'var(--red)' : 'var(--green)'}">${p.quantity}</td>
+          <td style="font-family:var(--mono);color:var(--text-dim)">${p.minQuantity}</td>
+          <td style="font-family:var(--mono)">${fmtMoney(p.price)}</td>
+          <td><span class="badge ${isLow ? 'warn' : 'ok'}">${isLow ? '⚠ Sắp hết' : '✓ Đủ hàng'}</span></td>
+          <td>
+            ${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="openProductModal('${p.id}')">✏</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}','${p.name.replace(/'/g,"\\'")}')">🗑</button>` : '—'}
+          </td>
+        </tr>`;
+      }).join('');
+}
+
+// Mở modal thêm/sửa sản phẩm — tải danh sách NCC từ API
+async function openProductModal(id) {
+  document.getElementById('product-modal-title').textContent = id ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm mới';
+  document.getElementById('pm-id').value = id || '';
+
+  // Xóa form
+  ['pm-name','pm-category','pm-unit','pm-price','pm-qty','pm-min-qty'].forEach(i => document.getElementById(i).value = '');
+  document.getElementById('pm-supplier').innerHTML = '<option value="">-- Đang tải NCC... --</option>';
+
+  // Tải NCC từ API
+  const supData = await api('/suppliers');
+  const suppliers = Array.isArray(supData) ? supData : [];
+  const sel = document.getElementById('pm-supplier');
+  sel.innerHTML = '<option value="">-- Không chọn --</option>' +
+    suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+
+  // Nếu sửa → load dữ liệu SP
+  if (id) {
+    const p = await api(`/products/${id}`);
+    if (p) {
+      document.getElementById('pm-name').value     = p.name;
+      document.getElementById('pm-category').value = p.category;
+      document.getElementById('pm-unit').value     = p.unit;
+      document.getElementById('pm-price').value    = p.price;
+      document.getElementById('pm-qty').value      = p.quantity;
+      document.getElementById('pm-min-qty').value  = p.minQuantity;
+      sel.value = p.supplierId || '';
+    }
+  }
+  openModal('modal-product');
+}
+
+async function saveProduct() {
+  const editId = document.getElementById('pm-id').value;
+  const body = {
+    name:        document.getElementById('pm-name').value.trim(),
+    category:    document.getElementById('pm-category').value.trim(),
+    unit:        document.getElementById('pm-unit').value.trim(),
+    price:       parseFloat(document.getElementById('pm-price').value) || 0,
+    quantity:    parseInt(document.getElementById('pm-qty').value) || 0,
+    minQuantity: parseInt(document.getElementById('pm-min-qty').value) || 0,
+    supplierId:  document.getElementById('pm-supplier').value || null
+  };
+
+  if (!body.name)     { showToast('Tên sản phẩm là bắt buộc', 'error'); return; }
+  if (!body.category) { showToast('Danh mục là bắt buộc', 'error'); return; }
+  if (!body.unit)     { showToast('Đơn vị là bắt buộc', 'error'); return; }
+
+  const result = await api(
+    editId ? `/products/${editId}` : '/products',
+    { method: editId ? 'PUT' : 'POST', body: JSON.stringify(body) }
+  );
+  if (result) {
+    showToast(editId ? 'Đã cập nhật sản phẩm' : 'Đã thêm sản phẩm mới', 'success');
+    closeModal('modal-product');
+    renderProducts();
+  }
+}
+
+async function deleteProduct(id, name) {
+  if (!confirm(`Xóa sản phẩm "${name}"?`)) return;
+  const result = await api(`/products/${id}`, { method: 'DELETE' });
+  if (result) { showToast('Đã xóa sản phẩm', 'success'); renderProducts(); }
+}
+
+// ══════════════════════════════════════════════════════════
+//  GIAO DỊCH NHẬP/XUẤT — POST /api/transactions
+// ══════════════════════════════════════════════════════════
+async function renderTransactions() {
+  const q          = document.getElementById('tx-search').value;
+  const typeFilter = document.getElementById('tx-filter').value;
+
+  let url = '/transactions?pageSize=100';
+  if (typeFilter) url += `&type=${typeFilter}`;
+  if (q)          url += `&search=${encodeURIComponent(q)}`;
+
+  const data = await api(url);
+  if (!data) return;
+
+  const tbody = document.getElementById('tx-tbody');
+  const items = data.items || [];
+  tbody.innerHTML = items.length === 0
+    ? '<tr><td colspan="9"><div class="empty-state"><div class="icon">↕️</div>Không có giao dịch</div></td></tr>'
+    : items.map(t => {
+        const item  = t.items && t.items[0];
+        const total = item ? item.quantity * item.unitPrice : 0;
+        return `<tr>
+          <td style="font-family:var(--mono);font-size:11px;color:var(--text-dim)">${t.id.slice(-8)}</td>
+          <td><span class="badge ${t.type === 'Import' ? 'import' : 'export'}">${t.type === 'Import' ? '↓ Nhập' : '↑ Xuất'}</span></td>
+          <td>${item ? item.product?.name || '—' : '—'}</td>
+          <td style="font-family:var(--mono);font-weight:600">${item ? item.quantity : '—'}</td>
+          <td style="font-family:var(--mono)">${item ? fmtMoney(item.unitPrice) : '—'}</td>
+          <td style="font-family:var(--mono);color:var(--accent)">${fmtMoney(total)}</td>
+          <td>${t.user ? (t.user.fullName || t.user.username) : '—'}</td>
+          <td style="font-size:11px;color:var(--text-dim)">${fmtDate(t.createdAt)}</td>
+          <td style="font-size:11px;color:var(--text-dim)">${t.note || '—'}</td>
+        </tr>`;
+      }).join('');
+}
+
+let txType = 'Import';
+
+function setTxType(type) {
+  txType = type;
+  document.getElementById('tx-type').value = type;
+  document.getElementById('tx-modal-title').textContent = type === 'Import' ? '📥 Phiếu Nhập Kho' : '📤 Phiếu Xuất Kho';
+  document.getElementById('tx-submit-btn').textContent  = type === 'Import' ? 'Xác nhận Nhập kho' : 'Xác nhận Xuất kho';
+  document.getElementById('type-import').className = 'type-btn' + (type === 'Import' ? ' selected-import' : '');
+  document.getElementById('type-export').className = 'type-btn' + (type === 'Export' ? ' selected-export' : '');
+}
+
+async function openTxModal(type) {
+  setTxType(type);
+  document.getElementById('tx-qty').value   = '';
+  document.getElementById('tx-price').value = '';
+  document.getElementById('tx-note').value  = '';
+  document.getElementById('tx-stock-info').textContent   = '';
+  document.getElementById('tx-total-preview').textContent = '';
+  document.getElementById('tx-product').innerHTML = '<option value="">-- Đang tải sản phẩm... --</option>';
+
+  // Tải sản phẩm từ API
+  const data = await api('/products?pageSize=200');
+  const products = data ? (data.items || []) : [];
+  document.getElementById('tx-product').innerHTML =
+    '<option value="">-- Chọn sản phẩm --</option>' +
+    products.map(p => `<option value="${p.id}" data-price="${p.price}" data-qty="${p.quantity}" data-unit="${p.unit}">${p.name} (tồn: ${p.quantity} ${p.unit})</option>`).join('');
+
+  openModal('modal-tx');
+}
+
+function onTxProductChange() {
+  const sel = document.getElementById('tx-product');
+  const opt = sel.options[sel.selectedIndex];
+  if (opt && opt.value) {
+    document.getElementById('tx-price').value = opt.dataset.price || '';
+    document.getElementById('tx-stock-info').textContent = `Tồn hiện tại: ${opt.dataset.qty} ${opt.dataset.unit}`;
+  } else {
+    document.getElementById('tx-stock-info').textContent = '';
+  }
+  calcTxTotal();
+}
+
+function calcTxTotal() {
+  const qty   = parseInt(document.getElementById('tx-qty').value) || 0;
+  const price = parseFloat(document.getElementById('tx-price').value) || 0;
+  document.getElementById('tx-total-preview').textContent =
+    qty && price ? `Thành tiền: ${fmtMoney(qty * price)}` : '';
+}
+
+document.addEventListener('input', function(e) {
+  if (['tx-qty', 'tx-price'].includes(e.target.id)) calcTxTotal();
+});
+
+async function saveTx() {
+  const productId = document.getElementById('tx-product').value;
+  const qty       = parseInt(document.getElementById('tx-qty').value);
+  const unitPrice = parseFloat(document.getElementById('tx-price').value) || 0;
+  const note      = document.getElementById('tx-note').value.trim();
+  const type      = document.getElementById('tx-type').value;
+
+  if (!productId) { showToast('Vui lòng chọn sản phẩm', 'error'); return; }
+  if (!qty || qty < 1) { showToast('Số lượng phải ≥ 1', 'error'); return; }
+
+  const result = await api('/transactions', {
+    method: 'POST',
+    body: JSON.stringify({ type, productId, quantity: qty, unitPrice, note })
+  });
+
+  if (result) {
+    showToast(`${type === 'Import' ? 'Nhập' : 'Xuất'} kho thành công! Tồn mới: ${result.newStock}`, 'success');
+    closeModal('modal-tx');
+    renderTransactions();
+    refreshDashboard();
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+//  NHÀ CUNG CẤP — CRUD đầy đủ qua API
+// ══════════════════════════════════════════════════════════
+async function renderSuppliers() {
+  const q = document.getElementById('sup-search').value;
+  let url = '/suppliers';
+  if (q) url += `?search=${encodeURIComponent(q)}`;
+
+  const data = await api(url);
+  if (!data) return;
+
+  const isAdmin = currentUser && currentUser.role === 'Admin';
+  const tbody = document.getElementById('sup-tbody');
+  tbody.innerHTML = data.length === 0
+    ? '<tr><td colspan="6"><div class="empty-state"><div class="icon">🏭</div>Không tìm thấy nhà cung cấp</div></td></tr>'
+    : data.map(s => `<tr>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--text-dim)">${s.id}</td>
+        <td><strong>${s.name}</strong></td>
+        <td style="font-family:var(--mono)">${s.phone || '—'}</td>
+        <td>${s.email || '—'}</td>
+        <td style="font-size:12px;color:var(--text-dim)">${s.address || '—'}</td>
+        <td>
+          ${isAdmin ? `<button class="btn btn-ghost btn-sm" onclick="openSupModal('${s.id}')">✏</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteSupplier('${s.id}','${s.name.replace(/'/g,"\\'")}')">🗑</button>` : '—'}
+        </td>
+      </tr>`).join('');
+}
+
+async function openSupModal(id) {
+  document.getElementById('sup-modal-title').textContent = id ? 'Chỉnh sửa NCC' : 'Thêm nhà cung cấp';
+  document.getElementById('sm-id').value = id || '';
+  ['sm-name','sm-phone','sm-email','sm-addr'].forEach(i => document.getElementById(i).value = '');
+
+  if (id) {
+    const s = await api(`/suppliers/${id}`);
+    if (s) {
+      document.getElementById('sm-name').value  = s.name;
+      document.getElementById('sm-phone').value = s.phone || '';
+      document.getElementById('sm-email').value = s.email || '';
+      document.getElementById('sm-addr').value  = s.address || '';
+    }
+  }
+  openModal('modal-supplier');
+}
+
+async function saveSupplier() {
+  const editId = document.getElementById('sm-id').value;
+  const body = {
+    name:    document.getElementById('sm-name').value.trim(),
+    phone:   document.getElementById('sm-phone').value.trim() || null,
+    email:   document.getElementById('sm-email').value.trim() || null,
+    address: document.getElementById('sm-addr').value.trim() || null
+  };
+
+  if (!body.name) { showToast('Tên NCC là bắt buộc', 'error'); return; }
+
+  const result = await api(
+    editId ? `/suppliers/${editId}` : '/suppliers',
+    { method: editId ? 'PUT' : 'POST', body: JSON.stringify(body) }
+  );
+  if (result) {
+    showToast(editId ? 'Đã cập nhật nhà cung cấp' : 'Đã thêm nhà cung cấp mới', 'success');
+    closeModal('modal-supplier');
+    renderSuppliers();
+  }
+}
+
+async function deleteSupplier(id, name) {
+  if (!confirm(`Xóa nhà cung cấp "${name}"?`)) return;
+  const result = await api(`/suppliers/${id}`, { method: 'DELETE' });
+  if (result) { showToast('Đã xóa nhà cung cấp', 'success'); renderSuppliers(); }
+}
+
+// ══════════════════════════════════════════════════════════
+//  BÁO CÁO — GET /api/reports/statistics
+// ══════════════════════════════════════════════════════════
+async function renderReports() {
+  const stats = await api('/reports/statistics');
+  if (!stats) return;
+
+  document.getElementById('report-summary').innerHTML = `
+    <div class="stat-row"><span>📥 Số phiếu nhập</span><span style="font-family:var(--mono);color:var(--green)">${stats.importCount} phiếu</span></div>
+    <div class="stat-row"><span>💰 Giá trị nhập kho</span><span style="font-family:var(--mono);color:var(--green)">${fmtMoney(stats.importTotalValue)}</span></div>
+    <div class="stat-row"><span>📤 Số phiếu xuất</span><span style="font-family:var(--mono);color:var(--red)">${stats.exportCount} phiếu</span></div>
+    <div class="stat-row"><span>💸 Giá trị xuất kho</span><span style="font-family:var(--mono);color:var(--red)">${fmtMoney(stats.exportTotalValue)}</span></div>
+    <div class="stat-row"><span><strong>📦 Tổng giá trị tồn kho</strong></span><span style="font-family:var(--mono);color:var(--accent);font-weight:700">${fmtMoney(stats.currentStockValue)}</span></div>
+  `;
+
+  const top5 = stats.top5ByValue || [];
+  document.getElementById('report-top5').innerHTML = top5.length === 0
+    ? '<div class="empty-state">Chưa có dữ liệu</div>'
+    : top5.map((p, i) => `
+      <div class="stat-row">
+        <span>${['🥇','🥈','🥉','4️⃣','5️⃣'][i]} ${p.name}</span>
+        <span style="font-family:var(--mono);color:var(--accent)">${fmtMoney(p.value)}</span>
+      </div>`).join('');
+
+  // Bảng giao dịch chi tiết
+  const txData = await api('/transactions?pageSize=100');
+  const txItems = txData ? (txData.items || []) : [];
+  const tbody = document.getElementById('report-tbody');
+  tbody.innerHTML = txItems.length === 0
+    ? '<tr><td colspan="8" class="empty-state">Chưa có giao dịch</td></tr>'
+    : txItems.map(t => {
+        const item  = t.items && t.items[0];
+        const total = item ? item.quantity * item.unitPrice : 0;
+        return `<tr>
+          <td style="font-family:var(--mono);font-size:11px;color:var(--text-dim)">${t.id.slice(-8)}</td>
+          <td><span class="badge ${t.type === 'Import' ? 'import' : 'export'}">${t.type === 'Import' ? '↓ Nhập' : '↑ Xuất'}</span></td>
+          <td>${item ? item.product?.name || '—' : '—'}</td>
+          <td style="font-family:var(--mono)">${item ? item.quantity : '—'}</td>
+          <td style="font-family:var(--mono)">${item ? fmtMoney(item.unitPrice) : '—'}</td>
+          <td style="font-family:var(--mono);color:var(--accent)">${fmtMoney(total)}</td>
+          <td>${t.user ? (t.user.fullName || t.user.username) : '—'}</td>
+          <td style="font-size:11px;color:var(--text-dim)">${fmtDate(t.createdAt)}</td>
+        </tr>`;
+      }).join('');
+}
+
+async function exportExcel() {
+  const txData = await api('/transactions?pageSize=1000');
+  if (!txData) return;
+
+  const headers = ['Mã GD','Loại','Sản phẩm','Số lượng','Đơn giá (VND)','Thành tiền (VND)','Người thực hiện','Ngày giờ','Ghi chú'];
+  const dataRows = (txData.items || []).map(t => {
+    const item  = t.items && t.items[0];
+    const total = item ? item.quantity * item.unitPrice : 0;
+    return [
+      t.id,
+      t.type === 'Import' ? 'Nhập kho' : 'Xuất kho',
+      item ? (item.product?.name || '') : '',
+      item ? item.quantity : '',
+      item ? item.unitPrice : '',
+      total,
+      t.user ? (t.user.fullName || t.user.username) : '',
+      fmtDate(t.createdAt),
+      t.note || ''
+    ];
+  });
+
+  const wb = XLSX.utils.book_new();
+  const wsData = [headers, ...dataRows];
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+  // Column widths
+  ws['!cols'] = [
+    {wch:20},{wch:12},{wch:28},{wch:10},{wch:16},{wch:18},{wch:20},{wch:18},{wch:30}
+  ];
+
+  // Style header row
+  const headerStyle = {
+    font: { bold: true, color: { rgb: 'FFFFFF' } },
+    fill: { fgColor: { rgb: '1A2B4A' } },
+    alignment: { horizontal: 'center', vertical: 'center' },
+    border: { bottom: { style: 'thin', color: { rgb: '00D4FF' } } }
+  };
+  headers.forEach((_, ci) => {
+    const addr = XLSX.utils.encode_cell({ r: 0, c: ci });
+    if (!ws[addr]) return;
+    ws[addr].s = headerStyle;
+  });
+
+  // Style data rows — money columns right-aligned, number format
+  dataRows.forEach((row, ri) => {
+    row.forEach((_, ci) => {
+      const addr = XLSX.utils.encode_cell({ r: ri + 1, c: ci });
+      if (!ws[addr]) return;
+      const isMoneyCol = ci === 4 || ci === 5;
+      const isNumCol   = ci === 3;
+      ws[addr].s = {
+        alignment: { horizontal: isMoneyCol || isNumCol ? 'right' : 'left', vertical: 'center' },
+        fill: { fgColor: { rgb: ri % 2 === 0 ? 'F7FAFF' : 'FFFFFF' } },
+        border: {
+          bottom: { style: 'thin', color: { rgb: 'E0E8F0' } },
+          right:  { style: 'thin', color: { rgb: 'E0E8F0' } }
+        }
+      };
+      if (isMoneyCol) ws[addr].z = '#,##0';
+    });
+  });
+
+  // Summary sheet
+  const stats = await api('/reports/statistics');
+  const summaryData = stats ? [
+    ['TỔNG HỢP NHẬP XUẤT KHO'],
+    [''],
+    ['Chỉ số', 'Giá trị'],
+    ['Số phiếu nhập', stats.importCount],
+    ['Giá trị nhập kho (VND)', stats.importTotalValue],
+    ['Số phiếu xuất', stats.exportCount],
+    ['Giá trị xuất kho (VND)', stats.exportTotalValue],
+    ['Tổng giá trị tồn kho (VND)', stats.currentStockValue],
+    [''],
+    ['Ngày xuất', new Date().toLocaleString('vi-VN')],
+    ['Người xuất', currentUser?.fullName || currentUser?.id || '—'],
+  ] : [['Không thể tải thống kê']];
+
+  const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+  wsSummary['!cols'] = [{wch:30},{wch:22}];
+  if (wsSummary['A1']) wsSummary['A1'].s = { font: { bold: true, sz: 14, color: { rgb: '00D4FF' } } };
+
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Tổng hợp');
+  XLSX.utils.book_append_sheet(wb, ws, 'Lịch sử giao dịch');
+
+  XLSX.writeFile(wb, `WMS_BaoCao_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Đã xuất file Excel thành công!', 'success');
+}
+
+// ══════════════════════════════════════════════════════════
+//  NGƯỜI DÙNG — CRUD qua API (chỉ Admin)
+// ══════════════════════════════════════════════════════════
+async function renderUsers() {
+  const q = document.getElementById('user-search').value;
+  let url = '/users';
+  if (q) url += `?search=${encodeURIComponent(q)}`;
+
+  const data = await api(url);
+  if (!data) return;
+
+  const tbody = document.getElementById('user-tbody');
+  tbody.innerHTML = data.length === 0
+    ? '<tr><td colspan="6" class="empty-state">Không có tài khoản</td></tr>'
+    : data.map(u => `<tr>
+        <td style="font-family:var(--mono);font-size:11px;color:var(--text-dim)">${u.id}</td>
+        <td style="font-family:var(--mono)">${u.username}</td>
+        <td>${u.fullName || '—'}</td>
+        <td><span class="badge ${u.role === 'Admin' ? 'admin' : 'staff'}">${u.role}</span></td>
+        <td style="font-size:11px;color:var(--text-dim)">${fmtDate(u.createdAt)}</td>
+        <td>
+          ${u.id !== currentUser?.id
+            ? `<button class="btn btn-danger btn-sm" onclick="deleteUser('${u.id}','${u.username}')">Xóa</button>`
+            : '<span style="font-size:11px;color:var(--text-dim)">(Bạn)</span>'}
+        </td>
+      </tr>`).join('');
+}
+
+function openUserModal() {
+  ['um-username','um-fullname','um-password'].forEach(i => document.getElementById(i).value = '');
+  document.getElementById('um-role').value = 'Staff';
+  openModal('modal-user');
+}
+
+async function saveUser() {
+  const username = document.getElementById('um-username').value.trim();
+  const fullName = document.getElementById('um-fullname').value.trim();
+  const password = document.getElementById('um-password').value;
+  const role     = document.getElementById('um-role').value;
+
+  if (!username) { showToast('Tên đăng nhập là bắt buộc', 'error'); return; }
+  if (!password || password.length < 6) { showToast('Mật khẩu phải ≥ 6 ký tự', 'error'); return; }
+
+  const result = await api('/users', {
+    method: 'POST',
+    body: JSON.stringify({ username, fullName, password, role })
+  });
+  if (result) {
+    showToast(`Đã tạo tài khoản "${username}"`, 'success');
+    closeModal('modal-user');
+    renderUsers();
+  }
+}
+
+async function deleteUser(id, username) {
+  if (!confirm(`Xóa tài khoản "${username}"?`)) return;
+  const result = await api(`/users/${id}`, { method: 'DELETE' });
+  if (result) { showToast('Đã xóa tài khoản', 'success'); renderUsers(); }
+}
+
+// ══════════════════════════════════════════════════════════
+//  KIỂM KHO — Inventory Audit
+// ══════════════════════════════════════════════════════════
+let _auditProducts = [];   // cache sản phẩm từ API
+let _auditData     = {};   // { productId: { actual: number|null, note: string } }
+let _lastAuditResult = null;
+
+async function renderAudit() {
+  const tbody = document.getElementById('audit-tbody');
+  tbody.innerHTML = `<tr><td colspan="9"><div class="panel-loading"><span class="refresh-spinner"></span>&nbsp;Đang tải danh sách sản phẩm...</div></td></tr>`;
+  document.getElementById('audit-status-bar').innerHTML = `<span style="color:var(--text-dim);font-family:var(--mono);">Đang tải...</span>`;
+
+  // Tải toàn bộ sản phẩm từ API (fresh data)
+  const data = await api('/products?pageSize=500');
+  if (!data) { tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">Không thể tải dữ liệu</div></td></tr>`; return; }
+
+  _auditProducts = data.items || [];
+
+  // Cập nhật dropdown danh mục
+  const cats = [...new Set(_auditProducts.map(p => p.category))].sort();
+  const catSel = document.getElementById('audit-filter-cat');
+  const curCat = catSel.value;
+  catSel.innerHTML = '<option value="">Tất cả danh mục</option>' +
+    cats.map(c => `<option value="${c}" ${c === curCat ? 'selected' : ''}>${c}</option>`).join('');
+
+  // Khởi tạo state nếu sản phẩm mới
+  _auditProducts.forEach(p => {
+    if (!_auditData[p.id]) _auditData[p.id] = { actual: null, note: '' };
+  });
+
+  // Ngày kiểm kho
+  document.getElementById('audit-date').textContent =
+    'Ngày: ' + new Date().toLocaleDateString('vi-VN') + ' ' + new Date().toLocaleTimeString('vi-VN');
+
+  renderAuditTable(_auditProducts);
+  updateAuditStatusBar();
+}
+
+function renderAuditTable(products) {
+  const tbody = document.getElementById('audit-tbody');
+  if (products.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="icon">🔎</div>Không tìm thấy sản phẩm</div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = products.map(p => {
+    const state   = _auditData[p.id] || { actual: null, note: '' };
+    const actual  = state.actual;
+    const sysQty  = p.quantity;
+    const diff    = actual !== null ? (actual - sysQty) : null;
+    const diffStr = diff === null ? '—'
+                  : diff > 0 ? `+${diff}`
+                  : diff < 0 ? `${diff}` : '0';
+    const diffClass = diff === null ? 'audit-diff-zero'
+                    : diff > 0 ? 'audit-diff-pos'
+                    : diff < 0 ? 'audit-diff-neg' : 'audit-diff-zero';
+
+    let statusBadge;
+    if (actual === null)
+      statusBadge = `<span class="badge" style="background:rgba(122,144,168,.15);color:var(--text-dim)">⏳ Chưa nhập</span>`;
+    else if (diff === 0)
+      statusBadge = `<span class="badge ok">✓ Khớp</span>`;
+    else
+      statusBadge = `<span class="badge warn">⚠ Chênh lệch</span>`;
+
+    return `<tr id="audit-row-${p.id}" data-id="${p.id}" data-cat="${p.category}" data-name="${p.name.toLowerCase()}">
+      <td style="font-family:var(--mono);font-size:11px;color:var(--text-dim)">${p.id}</td>
+      <td><strong>${p.name}</strong></td>
+      <td>${p.category}</td>
+      <td>${p.unit}</td>
+      <td style="text-align:right;font-family:var(--mono);font-weight:600;color:${p.isLowStock ? 'var(--red)' : 'var(--green)'}">${sysQty}</td>
+      <td class="audit-input-cell">
+        <input type="number" min="0" value="${actual !== null ? actual : ''}"
+          placeholder="—"
+          onchange="onAuditInput('${p.id}', this.value)"
+          oninput="onAuditInput('${p.id}', this.value)"
+          style="text-align:right;">
+      </td>
+      <td style="text-align:right"><span class="${diffClass}" id="audit-diff-${p.id}">${diffStr}</span></td>
+      <td class="audit-note-input">
+        <input type="text" value="${state.note}" placeholder="Ghi chú..."
+          onchange="onAuditNote('${p.id}', this.value)">
+      </td>
+      <td id="audit-status-${p.id}">${statusBadge}</td>
+    </tr>`;
+  }).join('');
+}
+
+function onAuditInput(productId, val) {
+  if (!_auditData[productId]) _auditData[productId] = { actual: null, note: '' };
+  const actual = val === '' || val === null ? null : parseInt(val, 10);
+  _auditData[productId].actual = isNaN(actual) ? null : actual;
+
+  // Update diff cell và status badge trực tiếp (không re-render cả bảng)
+  const p = _auditProducts.find(x => x.id === productId);
+  if (!p) return;
+  const sysQty = p.quantity;
+  const diff   = actual !== null ? (actual - sysQty) : null;
+  const diffEl = document.getElementById(`audit-diff-${productId}`);
+  const statEl = document.getElementById(`audit-status-${productId}`);
+
+  if (diffEl) {
+    diffEl.textContent = diff === null ? '—' : (diff > 0 ? `+${diff}` : `${diff}`);
+    diffEl.className   = diff === null ? 'audit-diff-zero' : diff > 0 ? 'audit-diff-pos' : diff < 0 ? 'audit-diff-neg' : 'audit-diff-zero';
+  }
+  if (statEl) {
+    if (actual === null)
+      statEl.innerHTML = `<span class="badge" style="background:rgba(122,144,168,.15);color:var(--text-dim)">⏳ Chưa nhập</span>`;
+    else if (diff === 0)
+      statEl.innerHTML = `<span class="badge ok">✓ Khớp</span>`;
+    else
+      statEl.innerHTML = `<span class="badge warn">⚠ Chênh lệch</span>`;
+  }
+
+  updateAuditStatusBar();
+}
+
+function onAuditNote(productId, val) {
+  if (!_auditData[productId]) _auditData[productId] = { actual: null, note: '' };
+  _auditData[productId].note = val;
+}
+
+function updateAuditStatusBar() {
+  const entered   = _auditProducts.filter(p => _auditData[p.id]?.actual !== null);
+  const matched   = entered.filter(p => _auditData[p.id].actual === p.quantity);
+  const diffItems = entered.filter(p => _auditData[p.id].actual !== p.quantity);
+  const pending   = _auditProducts.length - entered.length;
+
+  document.getElementById('audit-status-bar').innerHTML = `
+    <span style="color:var(--text-dim);font-family:var(--mono);font-size:11px;">Tổng: ${_auditProducts.length} SP</span>
+    <div class="audit-stat"><div class="audit-stat-dot pending"></div><span style="color:var(--text-dim)">${pending} chưa nhập</span></div>
+    <div class="audit-stat"><div class="audit-stat-dot match"></div><span style="color:var(--green)">${matched.length} khớp</span></div>
+    <div class="audit-stat"><div class="audit-stat-dot diff"></div><span style="color:var(--red)">${diffItems.length} chênh lệch</span></div>
+    <div style="margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text-dim)">
+      Tiến độ: <strong style="color:var(--accent)">${entered.length}/${_auditProducts.length}</strong>
+    </div>`;
+
+  // Badge trên nav
+  const badge = document.getElementById('audit-badge');
+  if (diffItems.length > 0) {
+    badge.style.display = '';
+    badge.textContent   = diffItems.length;
+  } else {
+    badge.style.display = 'none';
+  }
+}
+
+function filterAuditTable() {
+  const q    = (document.getElementById('audit-search').value || '').toLowerCase();
+  const cat  = document.getElementById('audit-filter-cat').value;
+  const diff = document.getElementById('audit-filter-diff').value;
+
+  const filtered = _auditProducts.filter(p => {
+    if (q && !p.name.toLowerCase().includes(q) && !p.id.toLowerCase().includes(q)) return false;
+    if (cat && p.category !== cat) return false;
+    if (diff) {
+      const state  = _auditData[p.id] || { actual: null };
+      const actual = state.actual;
+      if (diff === 'pending' && actual !== null) return false;
+      if (diff === 'match'   && (actual === null || actual !== p.quantity)) return false;
+      if (diff === 'diff'    && (actual === null || actual === p.quantity)) return false;
+    }
+    return true;
+  });
+
+  renderAuditTable(filtered);
+}
+
+function confirmAudit() {
+  const entered   = _auditProducts.filter(p => _auditData[p.id]?.actual !== null);
+  if (entered.length === 0) { showToast('Chưa nhập bất kỳ số liệu thực tế nào', 'error'); return; }
+
+  const diffItems = entered.filter(p => _auditData[p.id].actual !== p.quantity);
+  const matched   = entered.filter(p => _auditData[p.id].actual === p.quantity);
+
+  const now = new Date().toLocaleString('vi-VN');
+  const user = currentUser?.fullName || currentUser?.id || '—';
+
+  // Lưu kết quả kiểm kho (client-side)
+  _lastAuditResult = { timestamp: now, user, entered, diffItems, matched };
+
+  const resultCard = document.getElementById('audit-result-card');
+  const resultBody = document.getElementById('audit-result-body');
+
+  resultBody.innerHTML = `
+    <div style="margin-bottom:14px;">
+      <div style="font-size:12px;color:var(--text-dim);font-family:var(--mono);">Kiểm kho lúc ${now} — Người kiểm: <strong style="color:var(--accent)">${user}</strong></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;text-align:center;">
+        <div style="font-size:10px;font-family:var(--mono);color:var(--text-dim);margin-bottom:4px;">ĐÃ KIỂM</div>
+        <div style="font-size:22px;font-weight:700;font-family:var(--mono);color:var(--accent)">${entered.length}</div>
+        <div style="font-size:10px;color:var(--text-dim)">/ ${_auditProducts.length} sản phẩm</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid rgba(0,230,118,.3);border-radius:var(--radius);padding:12px;text-align:center;">
+        <div style="font-size:10px;font-family:var(--mono);color:var(--text-dim);margin-bottom:4px;">KHỚP</div>
+        <div style="font-size:22px;font-weight:700;font-family:var(--mono);color:var(--green)">${matched.length}</div>
+      </div>
+      <div style="background:var(--surface2);border:1px solid rgba(255,71,87,.3);border-radius:var(--radius);padding:12px;text-align:center;">
+        <div style="font-size:10px;font-family:var(--mono);color:var(--text-dim);margin-bottom:4px;">CHÊNH LỆCH</div>
+        <div style="font-size:22px;font-weight:700;font-family:var(--mono);color:var(--red)">${diffItems.length}</div>
+      </div>
+    </div>
+    ${diffItems.length > 0 ? `
+      <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--red)">⚠ Các mặt hàng chênh lệch:</div>
+      <table>
+        <thead><tr>
+          <th>Mã SP</th><th>Tên sản phẩm</th><th>ĐVT</th>
+          <th style="text-align:right">Tồn HT</th>
+          <th style="text-align:right">Thực tế</th>
+          <th style="text-align:right">Chênh lệch</th>
+          <th>Ghi chú</th>
+        </tr></thead>
+        <tbody>${diffItems.map(p => {
+          const s    = _auditData[p.id];
+          const diff = s.actual - p.quantity;
+          return `<tr>
+            <td style="font-family:var(--mono);font-size:11px;color:var(--text-dim)">${p.id}</td>
+            <td><strong>${p.name}</strong></td>
+            <td>${p.unit}</td>
+            <td style="text-align:right;font-family:var(--mono)">${p.quantity}</td>
+            <td style="text-align:right;font-family:var(--mono)">${s.actual}</td>
+            <td style="text-align:right" class="${diff > 0 ? 'audit-diff-pos' : 'audit-diff-neg'}">${diff > 0 ? '+' : ''}${diff}</td>
+            <td style="font-size:11px;color:var(--text-dim)">${s.note || '—'}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table>` : `<div style="text-align:center;padding:20px;color:var(--green)">🎉 Tất cả sản phẩm đã kiểm đều khớp tồn kho!</div>`}
+  `;
+
+  resultCard.style.display = '';
+  resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  const msg = diffItems.length > 0
+    ? `Kiểm kho hoàn tất: ${matched.length} khớp, ${diffItems.length} chênh lệch`
+    : `Kiểm kho hoàn tất: toàn bộ ${matched.length} sản phẩm khớp!`;
+  showToast(msg, diffItems.length > 0 ? 'info' : 'success');
+}
+
+function exportAuditExcel() {
+  if (_auditProducts.length === 0) { showToast('Chưa có dữ liệu kiểm kho', 'error'); return; }
+
+  const headers = ['Mã SP','Tên sản phẩm','Danh mục','Đơn vị','Tồn hệ thống','Tồn thực tế','Chênh lệch','Ghi chú','Trạng thái'];
+  const dataRows = _auditProducts.map(p => {
+    const s      = _auditData[p.id] || { actual: null, note: '' };
+    const actual = s.actual;
+    const diff   = actual !== null ? (actual - p.quantity) : '';
+    const status = actual === null ? 'Chưa nhập' : diff === 0 ? 'Khớp' : 'Chênh lệch';
+    return [p.id, p.name, p.category, p.unit, p.quantity,
+            actual !== null ? actual : '', diff, s.note || '', status];
+  });
+
+  const wb = XLSX.utils.book_new();
+
+  // === Sheet 1: Chi tiết kiểm kho ===
+  const titleRow  = [`PHIẾU KIỂM KHO — Ngày: ${new Date().toLocaleString('vi-VN')} — Người kiểm: ${currentUser?.fullName || currentUser?.id || '—'}`];
+  const wsData    = [titleRow, [], headers, ...dataRows];
+  const ws        = XLSX.utils.aoa_to_sheet(wsData);
+
+  ws['!cols'] = [{wch:14},{wch:30},{wch:16},{wch:10},{wch:14},{wch:14},{wch:12},{wch:28},{wch:14}];
+  ws['!merges'] = [{ s: {r:0,c:0}, e: {r:0,c:8} }];
+
+  // Title style
+  if (ws['A1']) ws['A1'].s = {
+    font: { bold: true, sz: 13, color: { rgb: 'FFFFFF' } },
+    fill: { fgColor: { rgb: '0F2444' } },
+    alignment: { horizontal: 'center', vertical: 'center' }
+  };
+
+  // Header row (row index 2)
+  headers.forEach((_, ci) => {
+    const addr = XLSX.utils.encode_cell({ r: 2, c: ci });
+    if (!ws[addr]) return;
+    ws[addr].s = {
+      font: { bold: true, color: { rgb: 'FFFFFF' } },
+      fill: { fgColor: { rgb: '1A3A6B' } },
+      alignment: { horizontal: 'center', vertical: 'center' },
+      border: { bottom: { style: 'medium', color: { rgb: '00D4FF' } } }
+    };
+  });
+
+  // Data rows
+  dataRows.forEach((row, ri) => {
+    const status = row[8];
+    const rowBg  = status === 'Khớp' ? 'EFFFEF' : status === 'Chênh lệch' ? 'FFF0F0' : 'F7FAFF';
+    row.forEach((_, ci) => {
+      const addr = XLSX.utils.encode_cell({ r: ri + 3, c: ci });
+      if (!ws[addr]) return;
+      ws[addr].s = {
+        fill: { fgColor: { rgb: ri % 2 === 0 ? rowBg : 'FFFFFF' } },
+        alignment: { horizontal: (ci >= 4 && ci <= 6) ? 'right' : 'left', vertical: 'center' },
+        border: { bottom: { style: 'thin', color: { rgb: 'E0E8F0' } }, right: { style: 'thin', color: { rgb: 'E0E8F0' } } },
+        font: ci === 6 && typeof row[6] === 'number' && row[6] !== 0
+          ? { bold: true, color: { rgb: row[6] > 0 ? '00A050' : 'DD2244' } }
+          : {}
+      };
+    });
+  });
+
+  // === Sheet 2: Tóm tắt ===
+  const entered   = _auditProducts.filter(p => _auditData[p.id]?.actual !== null);
+  const matched   = entered.filter(p => _auditData[p.id].actual === p.quantity);
+  const diffItems = entered.filter(p => _auditData[p.id].actual !== p.quantity);
+
+  const summaryData = [
+    ['KẾT QUẢ KIỂM KHO'],
+    [''],
+    ['Chỉ số', 'Số lượng'],
+    ['Tổng sản phẩm kiểm tra', _auditProducts.length],
+    ['Đã nhập số liệu', entered.length],
+    ['Chưa nhập', _auditProducts.length - entered.length],
+    ['Khớp tồn kho', matched.length],
+    ['Chênh lệch', diffItems.length],
+    [''],
+    ['Người kiểm', currentUser?.fullName || currentUser?.id || '—'],
+    ['Ngày kiểm', new Date().toLocaleString('vi-VN')],
+  ];
+  const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+  wsSummary['!cols'] = [{wch:28},{wch:18}];
+  if (wsSummary['A1']) wsSummary['A1'].s = { font: { bold: true, sz: 14, color: { rgb: '00D4FF' } } };
+
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Tóm tắt');
+  XLSX.utils.book_append_sheet(wb, ws, 'Chi tiết kiểm kho');
+
+  XLSX.writeFile(wb, `KiemKho_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('Đã xuất phiếu kiểm kho Excel!', 'success');
+}
+
+// ══════════════════════════════════════════════════════════
+//  KHỞI ĐỘNG
+// ══════════════════════════════════════════════════════════
+setInterval(updateClock, 1000);
+updateClock();
+
+// Nếu đã có token cũ, tự động vào dashboard
+if (token && currentUser) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('user-display').textContent = currentUser.fullName || currentUser.id;
+  document.getElementById('role-display').textContent = (currentUser.role || '').toUpperCase();
+  document.getElementById('avatar-initials').textContent = (currentUser.fullName || 'U')[0];
+  document.querySelectorAll('.admin-only').forEach(el =>
+    el.style.display = currentUser.role === 'Admin' ? '' : 'none');
+  showPanel('dashboard');
+}
+
+// Enter key đăng nhập
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') doLogin();
+});
+</script>
+</body>
+</html>
