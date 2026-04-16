@@ -13,6 +13,8 @@ public class WmsDbContext : DbContext
     public DbSet<Product>         Products         { get; set; }
     public DbSet<Transaction>     Transactions     { get; set; }
     public DbSet<TransactionItem> TransactionItems { get; set; }
+    public DbSet<StockTake> StockTakes { get; set; }
+    public DbSet<StockTakeItem> StockTakeItems { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -22,7 +24,8 @@ public class WmsDbContext : DbContext
         modelBuilder.Entity<Product>().ToTable("PRODUCTS");
         modelBuilder.Entity<Transaction>().ToTable("TRANSACTIONS");
         modelBuilder.Entity<TransactionItem>().ToTable("TRANSACTION_ITEMS");
-
+        modelBuilder.Entity<StockTake>().ToTable("STOCK_TAKES");
+        modelBuilder.Entity<StockTakeItem>().ToTable("STOCK_TAKE_ITEMS");
         // Username phải unique (FR-004)
         modelBuilder.Entity<AppUser>()
             .HasIndex(u => u.Username)
@@ -55,6 +58,30 @@ public class WmsDbContext : DbContext
             .WithMany(p => p.TransactionItems)
             .HasForeignKey(i => i.ProductId)
             .OnDelete(DeleteBehavior.Restrict); // Không cho xóa product nếu có giao dịch
+      
+        modelBuilder.Entity<StockTake>()
+            .HasOne(s => s.Creator)
+            .WithMany()
+            .HasForeignKey(s => s.CreatedBy)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StockTake>()
+            .HasOne(s => s.Approver)
+            .WithMany()
+            .HasForeignKey(s => s.ApprovedBy)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        modelBuilder.Entity<StockTakeItem>()
+            .HasOne(i => i.StockTake)
+            .WithMany(s => s.Items)
+            .HasForeignKey(i => i.StockTakeId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        modelBuilder.Entity<StockTakeItem>()
+            .HasOne(i => i.Product)
+            .WithMany()
+            .HasForeignKey(i => i.ProductId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         // ── SEED DATA: tạo tài khoản admin mặc định ──
         modelBuilder.Entity<AppUser>().HasData(

@@ -378,38 +378,6 @@
   }
   .empty-state .icon { font-size: 36px; margin-bottom: 8px; }
 
-  /* ── KIỂM KHO (INVENTORY AUDIT) ── */
-  .audit-status-bar {
-    display: flex; align-items: center; gap: 16px;
-    padding: 12px 18px;
-    background: var(--surface2);
-    border-bottom: 1px solid var(--border);
-    font-size: 12px;
-  }
-table {
-    table-layout: fixed;
-}
-  .audit-stat { display: flex; align-items: center; gap: 6px; }
-  .audit-stat-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-  .audit-stat-dot.match   { background: var(--green); }
-  .audit-stat-dot.diff    { background: var(--red); }
-  .audit-stat-dot.pending { background: var(--text-dim); }
-
-  .audit-input-cell { width: 100px; }
-  .audit-input-cell input {
-    padding: 6px 8px;
-    font-family: var(--mono);
-    font-size: 12px;
-    text-align: right;
-    width: 130%;
-  }
-  .audit-diff-pos { color: var(--green); font-family: var(--mono); font-weight: 700; }
-  .audit-diff-neg { color: var(--red);   font-family: var(--mono); font-weight: 700; }
-  .audit-diff-zero { color: var(--text-dim); font-family: var(--mono); }
-
-  .audit-note-input { width: 100%; }
-  .audit-note-input input { padding: 5px 8px; font-size: 12px; }
-
   /* page refresh indicator */
   .refresh-spinner {
     display: inline-block; width: 12px; height: 12px;
@@ -470,9 +438,8 @@ table {
     <div class="nav-item" onclick="showPanel('suppliers', this)">
       <span class="icon">🏭</span> Nhà cung cấp
     </div>
-    <div class="nav-item" onclick="showPanel('audit', this)">
-      <span class="icon">🔎</span> Kiểm kho
-      <span class="nav-badge" id="audit-badge" style="display:none">!</span>
+    <div class="nav-item" onclick="showPanel('kiemkho', this)">
+      <span class="icon">🔍</span> Kiểm kho (API)
     </div>
 
     <div class="nav-section">Phân tích</div>
@@ -644,66 +611,56 @@ table {
       </div>
     </div>
 
-    <!-- AUDIT — KIỂM KHO -->
-    <div class="panel" id="panel-audit">
-      <div class="search-bar">
-        <div class="search-input-wrap">
-          <span class="search-icon">🔍</span>
-          <input type="text" placeholder="Lọc theo tên, mã sản phẩm..." id="audit-search" oninput="filterAuditTable()">
+    <!-- KIỂM KHO API -->
+    <div class="panel" id="panel-kiemkho">
+
+      <!-- ── HEADER ── -->
+      <div class="page-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div>
+          <h1 style="font-size:20px;font-weight:700;margin-bottom:4px">🔍 Kiểm Kho</h1>
+          <p style="font-size:13px;color:var(--text-dim)">Đối chiếu tồn kho hệ thống với thực tế</p>
         </div>
-        <select id="audit-filter-cat" onchange="filterAuditTable()" style="width:160px;">
-          <option value="">Tất cả danh mục</option>
-        </select>
-        <select id="audit-filter-diff" onchange="filterAuditTable()" style="width:160px;">
+        <button class="btn btn-primary" onclick="kiemkho.openCreateModal()">+ Tạo phiếu kiểm</button>
+      </div>
+
+      <!-- ── FILTER BAR ── -->
+      <div style="display:flex;gap:10px;margin-bottom:16px;align-items:center">
+        <select id="kk-filter-status" onchange="kiemkho.loadList()"
+          style="background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:var(--radius);padding:8px 12px;font-size:13px">
           <option value="">Tất cả trạng thái</option>
-          <option value="diff">Có chênh lệch</option>
-          <option value="match">Khớp</option>
-          <option value="pending">Chưa nhập</option>
+          <option value="Draft">Draft</option>
+          <option value="Completed">Đã duyệt</option>
+          <option value="Cancelled">Đã hủy</option>
         </select>
-        <button class="btn btn-ghost btn-sm" onclick="renderAudit()">🔄 Tải lại</button>
-        <button class="btn btn-success" onclick="confirmAudit()">✅ Xác nhận kiểm kho</button>
-        <button class="btn btn-ghost btn-sm" onclick="exportAuditExcel()">📊 Xuất Excel</button>
+        <span id="kk-total-badge" style="font-size:12px;color:var(--text-dim)"></span>
       </div>
 
-      <!-- Status tổng quan -->
-      <div class="card" style="margin-bottom:16px;">
-        <div class="audit-status-bar" id="audit-status-bar">
-          <span style="color:var(--text-dim);font-family:var(--mono);">Đang tải dữ liệu kiểm kho...</span>
-        </div>
-      </div>
-
+      <!-- ── DANH SÁCH PHIẾU ── -->
       <div class="card">
-        <div class="card-header">
-          <div class="card-title">📋 Phiếu kiểm kho — <span id="audit-date" style="font-family:var(--mono);font-size:11px;color:var(--text-dim)"></span></div>
-          <div style="font-size:11px;color:var(--text-dim)">Nhập <strong>Tồn thực tế</strong> vào ô trống để so sánh với hệ thống</div>
-        </div>
         <div class="card-body">
-          <table>
-            <thead><tr>
-              <th>Mã SP</th>
-              <th>Tên sản phẩm</th>
-              <th>Danh mục</th>
-              <th>ĐVT</th>
-              <th style="text-align:right">Tồn HT</th>
-              <th style="text-align:right">Tồn thực tế</th>
-              <th style="text-align:right">Chênh lệch</th>
-              <th>Ghi chú</th>
-              <th>Trạng thái</th>
-            </tr></thead>
-            <tbody id="audit-tbody"></tbody>
+          <table style="table-layout:auto">
+            <thead>
+              <tr>
+                <th>Mã phiếu</th>
+                <th>Ngày tạo</th>
+                <th>Người tạo</th>
+                <th style="text-align:center">SP</th>
+                <th>Ghi chú</th>
+                <th style="text-align:center">Trạng thái</th>
+                <th style="text-align:center">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody id="kk-list-body">
+              <tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-dim)">Đang tải...</td></tr>
+            </tbody>
           </table>
         </div>
       </div>
 
-      <!-- Kết quả kiểm kho đã xác nhận -->
-      <div class="card" id="audit-result-card" style="display:none">
-        <div class="card-header">
-          <div class="card-title">📝 Kết quả kiểm kho gần nhất</div>
-          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('audit-result-card').style.display='none'">✕ Đóng</button>
-        </div>
-        <div class="card-body" id="audit-result-body" style="padding:16px;"></div>
-      </div>
-    </div>
+      <!-- ── PAGINATION ── -->
+      <div id="kk-pagination" style="display:flex;justify-content:flex-end;gap:6px;margin-top:12px"></div>
+
+    </div><!-- /panel-kiemkho -->
 
     <!-- REPORTS -->
     <div class="panel" id="panel-reports">
@@ -919,6 +876,93 @@ table {
 
 <div id="toast-container"></div>
 
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Tạo phiếu kiểm kho                                  -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div id="kk-modal-create" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;width:440px;padding:24px;max-height:90vh;overflow-y:auto">
+    <h2 style="font-size:16px;font-weight:700;margin-bottom:16px">Tạo phiếu kiểm kho</h2>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;color:var(--text-dim);display:block;margin-bottom:6px">Ghi chú</label>
+      <input id="kk-create-note" type="text" placeholder="VD: Kiểm kho tháng 4/2026..."
+        style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:13px">
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;color:var(--text-dim);display:block;margin-bottom:6px">Phạm vi kiểm</label>
+      <select id="kk-create-scope"
+        style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:13px"
+        onchange="kiemkho.onScopeChange()">
+        <option value="all">Toàn bộ kho</option>
+        <option value="category">Theo danh mục</option>
+        <option value="lowstock">Chỉ hàng sắp hết</option>
+      </select>
+    </div>
+    <div id="kk-create-category-row" style="margin-bottom:14px;display:none">
+      <label style="font-size:12px;color:var(--text-dim);display:block;margin-bottom:6px">Chọn danh mục</label>
+      <select id="kk-create-category"
+        style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:8px 12px;font-size:13px">
+        <option value="">-- Đang tải --</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">
+      <button onclick="kiemkho.closeCreateModal()"
+        style="padding:8px 16px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px">
+        Hủy
+      </button>
+      <button onclick="kiemkho.submitCreate()" class="btn btn-primary">Tạo phiếu</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════ -->
+<!-- MODAL: Chi tiết & nhập liệu kiểm kho                       -->
+<!-- ════════════════════════════════════════════════════════════ -->
+<div id="kk-modal-detail" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;width:880px;max-height:90vh;display:flex;flex-direction:column">
+    <!-- Header modal -->
+    <div style="padding:20px 24px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <div>
+        <h2 id="kk-detail-id" style="font-size:16px;font-weight:700"></h2>
+        <p id="kk-detail-meta" style="font-size:12px;color:var(--text-dim);margin-top:2px"></p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span id="kk-detail-status-badge"></span>
+        <button onclick="kiemkho.closeDetailModal()"
+          style="background:transparent;border:none;color:var(--text-dim);font-size:20px;cursor:pointer;line-height:1">×</button>
+      </div>
+    </div>
+    <!-- Tabs -->
+    <div style="padding:0 24px;border-bottom:1px solid var(--border);display:flex;gap:0">
+      <button id="kk-tab-all" onclick="kiemkho.switchTab('all')"
+        style="padding:10px 16px;background:transparent;border:none;border-bottom:2px solid var(--accent);color:var(--accent);font-size:13px;cursor:pointer">
+        Tất cả sản phẩm
+      </button>
+      <button id="kk-tab-diff" onclick="kiemkho.switchTab('diff')"
+        style="padding:10px 16px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--text-dim);font-size:13px;cursor:pointer">
+        Chênh lệch
+      </button>
+    </div>
+    <!-- Body bảng chi tiết -->
+    <div style="flex:1;overflow-y:auto;padding:16px 24px">
+      <table style="width:100%;border-collapse:collapse;table-layout:auto">
+        <thead>
+          <tr style="font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim)">
+            <th style="padding:8px 10px;text-align:left">Mã SP</th>
+            <th style="padding:8px 10px;text-align:left">Tên sản phẩm</th>
+            <th style="padding:8px 10px;text-align:center">Tồn HT</th>
+            <th style="padding:8px 10px;text-align:center">Thực tế</th>
+            <th style="padding:8px 10px;text-align:center">Chênh lệch</th>
+            <th style="padding:8px 10px;text-align:left">Ghi chú</th>
+          </tr>
+        </thead>
+        <tbody id="kk-detail-body"></tbody>
+      </table>
+    </div>
+    <!-- Footer modal -->
+    <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end" id="kk-detail-actions"></div>
+  </div>
+</div>
+
 <script>
 // ══════════════════════════════════════════════════════════
 //  CẤU HÌNH — đổi URL này nếu backend chạy trên server khác
@@ -1024,6 +1068,7 @@ const panelTitles = {
   transactions: ['Nhập / Xuất Kho', 'Lịch sử phiếu giao dịch'],
   suppliers:    ['Nhà cung cấp', 'Danh sách đối tác cung ứng'],
   audit:        ['Kiểm kho', 'Đối chiếu tồn kho thực tế & hệ thống'],
+  kiemkho:      ['Kiểm Kho (API)', 'Quản lý phiếu kiểm kho với backend'],
   reports:      ['Báo cáo', 'Thống kê & phân tích kho hàng'],
   users:        ['Người dùng', 'Quản lý tài khoản hệ thống'],
 };
@@ -1058,6 +1103,7 @@ function showPanel(name, el) {
   if (name === 'transactions') renderTransactions();
   if (name === 'suppliers')    renderSuppliers();
   if (name === 'audit')        renderAudit();
+  if (name === 'kiemkho')      kiemkho.loadList();
   if (name === 'reports')      renderReports();
   if (name === 'users')        renderUsers();
 }
@@ -1619,331 +1665,362 @@ async function deleteUser(id, username) {
 }
 
 // ══════════════════════════════════════════════════════════
-//  KIỂM KHO — Inventory Audit
+//  MODULE: kiemkho — gọi API /api/stocktakes
+//  URL backend lấy từ biến API đã khai báo ở đầu file
 // ══════════════════════════════════════════════════════════
-let _auditProducts = [];   // cache sản phẩm từ API
-let _auditData     = {};   // { productId: { actual: number|null, note: string } }
-let _lastAuditResult = null;
+const kiemkho = (() => {
 
-async function renderAudit() {
-  const tbody = document.getElementById('audit-tbody');
-  tbody.innerHTML = `<tr><td colspan="9"><div class="panel-loading"><span class="refresh-spinner"></span>&nbsp;Đang tải danh sách sản phẩm...</div></td></tr>`;
-  document.getElementById('audit-status-bar').innerHTML = `<span style="color:var(--text-dim);font-family:var(--mono);">Đang tải...</span>`;
+  // Dùng lại biến API và token từ file chính (đã khai báo bên trên)
+  const BASE = () => API.replace('/api', ''); // http://localhost:5000
 
-  // Tải toàn bộ sản phẩm từ API (fresh data)
-  const data = await api('/products?pageSize=500');
-  if (!data) { tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state">Không thể tải dữ liệu</div></td></tr>`; return; }
+  let currentStockTakeId = null;
+  let allItems = [];
+  let currentTab = 'all';
+  let currentPage = 1;
 
-  _auditProducts = data.items || [];
-
-  // Cập nhật dropdown danh mục
-  const cats = [...new Set(_auditProducts.map(p => p.category))].sort();
-  const catSel = document.getElementById('audit-filter-cat');
-  const curCat = catSel.value;
-  catSel.innerHTML = '<option value="">Tất cả danh mục</option>' +
-    cats.map(c => `<option value="${c}" ${c === curCat ? 'selected' : ''}>${c}</option>`).join('');
-
-  // Khởi tạo state nếu sản phẩm mới
-  _auditProducts.forEach(p => {
-    if (!_auditData[p.id]) _auditData[p.id] = { actual: null, note: '' };
-  });
-
-  // Ngày kiểm kho
-  document.getElementById('audit-date').textContent =
-    'Ngày: ' + new Date().toLocaleDateString('vi-VN') + ' ' + new Date().toLocaleTimeString('vi-VN');
-
-  renderAuditTable(_auditProducts);
-  updateAuditStatusBar();
-}
-
-function renderAuditTable(products) {
-  const tbody = document.getElementById('audit-tbody');
-  if (products.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="9"><div class="empty-state"><div class="icon">🔎</div>Không tìm thấy sản phẩm</div></td></tr>`;
-    return;
-  }
-
-  tbody.innerHTML = products.map(p => {
-    const state   = _auditData[p.id] || { actual: null, note: '' };
-    const actual  = state.actual;
-    const sysQty  = p.quantity;
-    const diff    = actual !== null ? (actual - sysQty) : null;
-    const diffStr = diff === null ? '—'
-                  : diff > 0 ? `+${diff}`
-                  : diff < 0 ? `${diff}` : '0';
-    const diffClass = diff === null ? 'audit-diff-zero'
-                    : diff > 0 ? 'audit-diff-pos'
-                    : diff < 0 ? 'audit-diff-neg' : 'audit-diff-zero';
-
-    let statusBadge;
-    if (actual === null)
-      statusBadge = `<span class="badge" style="background:rgba(122,144,168,.15);color:var(--text-dim)">⏳ Chưa nhập</span>`;
-    else if (diff === 0)
-      statusBadge = `<span class="badge ok">✓ Khớp</span>`;
-    else
-      statusBadge = `<span class="badge warn">⚠ Chênh lệch</span>`;
-
-    return `<tr id="audit-row-${p.id}" data-id="${p.id}" data-cat="${p.category}" data-name="${p.name.toLowerCase()}">
-      <td style="font-family:var(--mono);font-size:11px;color:var(--text-dim)">${p.id}</td>
-      <td><strong>${p.name}</strong></td>
-      <td>${p.category}</td>
-      <td>${p.unit}</td>
-      <td style="text-align:right;font-family:var(--mono);font-weight:600;color:${p.isLowStock ? 'var(--red)' : 'var(--green)'}">${sysQty}</td>
-      <td class="audit-input-cell">
-        <input type="number" min="0" value="${actual !== null ? actual : ''}"
-          placeholder="—"
-          onchange="onAuditInput('${p.id}', this.value)"
-          oninput="onAuditInput('${p.id}', this.value)"
-          style="text-align:right;">
-      </td>
-      <td style="text-align:right"><span class="${diffClass}" id="audit-diff-${p.id}">${diffStr}</span></td>
-      <td class="audit-note-input">
-        <input type="text" value="${state.note}" placeholder="Ghi chú..."
-          onchange="onAuditNote('${p.id}', this.value)">
-      </td>
-      <td id="audit-status-${p.id}">${statusBadge}</td>
-    </tr>`;
-  }).join('');
-}
-
-function onAuditInput(productId, val) {
-  if (!_auditData[productId]) _auditData[productId] = { actual: null, note: '' };
-  const actual = val === '' || val === null ? null : parseInt(val, 10);
-  _auditData[productId].actual = isNaN(actual) ? null : actual;
-
-  // Update diff cell và status badge trực tiếp (không re-render cả bảng)
-  const p = _auditProducts.find(x => x.id === productId);
-  if (!p) return;
-  const sysQty = p.quantity;
-  const diff   = actual !== null ? (actual - sysQty) : null;
-  const diffEl = document.getElementById(`audit-diff-${productId}`);
-  const statEl = document.getElementById(`audit-status-${productId}`);
-
-  if (diffEl) {
-    diffEl.textContent = diff === null ? '—' : (diff > 0 ? `+${diff}` : `${diff}`);
-    diffEl.className   = diff === null ? 'audit-diff-zero' : diff > 0 ? 'audit-diff-pos' : diff < 0 ? 'audit-diff-neg' : 'audit-diff-zero';
-  }
-  if (statEl) {
-    if (actual === null)
-      statEl.innerHTML = `<span class="badge" style="background:rgba(122,144,168,.15);color:var(--text-dim)">⏳ Chưa nhập</span>`;
-    else if (diff === 0)
-      statEl.innerHTML = `<span class="badge ok">✓ Khớp</span>`;
-    else
-      statEl.innerHTML = `<span class="badge warn">⚠ Chênh lệch</span>`;
-  }
-
-  updateAuditStatusBar();
-}
-
-function onAuditNote(productId, val) {
-  if (!_auditData[productId]) _auditData[productId] = { actual: null, note: '' };
-  _auditData[productId].note = val;
-}
-
-function updateAuditStatusBar() {
-  const entered   = _auditProducts.filter(p => _auditData[p.id]?.actual !== null);
-  const matched   = entered.filter(p => _auditData[p.id].actual === p.quantity);
-  const diffItems = entered.filter(p => _auditData[p.id].actual !== p.quantity);
-  const pending   = _auditProducts.length - entered.length;
-
-  document.getElementById('audit-status-bar').innerHTML = `
-    <span style="color:var(--text-dim);font-family:var(--mono);font-size:11px;">Tổng: ${_auditProducts.length} SP</span>
-    <div class="audit-stat"><div class="audit-stat-dot pending"></div><span style="color:var(--text-dim)">${pending} chưa nhập</span></div>
-    <div class="audit-stat"><div class="audit-stat-dot match"></div><span style="color:var(--green)">${matched.length} khớp</span></div>
-    <div class="audit-stat"><div class="audit-stat-dot diff"></div><span style="color:var(--red)">${diffItems.length} chênh lệch</span></div>
-    <div style="margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text-dim)">
-      Tiến độ: <strong style="color:var(--accent)">${entered.length}/${_auditProducts.length}</strong>
-    </div>`;
-
-  // Badge trên nav
-  const badge = document.getElementById('audit-badge');
-  if (diffItems.length > 0) {
-    badge.style.display = '';
-    badge.textContent   = diffItems.length;
-  } else {
-    badge.style.display = 'none';
-  }
-}
-
-function filterAuditTable() {
-  const q    = (document.getElementById('audit-search').value || '').toLowerCase();
-  const cat  = document.getElementById('audit-filter-cat').value;
-  const diff = document.getElementById('audit-filter-diff').value;
-
-  const filtered = _auditProducts.filter(p => {
-    if (q && !p.name.toLowerCase().includes(q) && !p.id.toLowerCase().includes(q)) return false;
-    if (cat && p.category !== cat) return false;
-    if (diff) {
-      const state  = _auditData[p.id] || { actual: null };
-      const actual = state.actual;
-      if (diff === 'pending' && actual !== null) return false;
-      if (diff === 'match'   && (actual === null || actual !== p.quantity)) return false;
-      if (diff === 'diff'    && (actual === null || actual === p.quantity)) return false;
-    }
-    return true;
-  });
-
-  renderAuditTable(filtered);
-}
-
-function confirmAudit() {
-  const entered   = _auditProducts.filter(p => _auditData[p.id]?.actual !== null);
-  if (entered.length === 0) { showToast('Chưa nhập bất kỳ số liệu thực tế nào', 'error'); return; }
-
-  const diffItems = entered.filter(p => _auditData[p.id].actual !== p.quantity);
-  const matched   = entered.filter(p => _auditData[p.id].actual === p.quantity);
-
-  const now = new Date().toLocaleString('vi-VN');
-  const user = currentUser?.fullName || currentUser?.id || '—';
-
-  // Lưu kết quả kiểm kho (client-side)
-  _lastAuditResult = { timestamp: now, user, entered, diffItems, matched };
-
-  const resultCard = document.getElementById('audit-result-card');
-  const resultBody = document.getElementById('audit-result-body');
-
-  resultBody.innerHTML = `
-    <div style="margin-bottom:14px;">
-      <div style="font-size:12px;color:var(--text-dim);font-family:var(--mono);">Kiểm kho lúc ${now} — Người kiểm: <strong style="color:var(--accent)">${user}</strong></div>
-    </div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px;">
-      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:12px;text-align:center;">
-        <div style="font-size:10px;font-family:var(--mono);color:var(--text-dim);margin-bottom:4px;">ĐÃ KIỂM</div>
-        <div style="font-size:22px;font-weight:700;font-family:var(--mono);color:var(--accent)">${entered.length}</div>
-        <div style="font-size:10px;color:var(--text-dim)">/ ${_auditProducts.length} sản phẩm</div>
-      </div>
-      <div style="background:var(--surface2);border:1px solid rgba(0,230,118,.3);border-radius:var(--radius);padding:12px;text-align:center;">
-        <div style="font-size:10px;font-family:var(--mono);color:var(--text-dim);margin-bottom:4px;">KHỚP</div>
-        <div style="font-size:22px;font-weight:700;font-family:var(--mono);color:var(--green)">${matched.length}</div>
-      </div>
-      <div style="background:var(--surface2);border:1px solid rgba(255,71,87,.3);border-radius:var(--radius);padding:12px;text-align:center;">
-        <div style="font-size:10px;font-family:var(--mono);color:var(--text-dim);margin-bottom:4px;">CHÊNH LỆCH</div>
-        <div style="font-size:22px;font-weight:700;font-family:var(--mono);color:var(--red)">${diffItems.length}</div>
-      </div>
-    </div>
-    ${diffItems.length > 0 ? `
-      <div style="font-size:12px;font-weight:700;margin-bottom:8px;color:var(--red)">⚠ Các mặt hàng chênh lệch:</div>
-      <table>
-        <thead><tr>
-          <th>Mã SP</th><th>Tên sản phẩm</th><th>ĐVT</th>
-          <th style="text-align:right">Tồn HT</th>
-          <th style="text-align:right">Thực tế</th>
-          <th style="text-align:right">Chênh lệch</th>
-          <th>Ghi chú</th>
-        </tr></thead>
-        <tbody>${diffItems.map(p => {
-          const s    = _auditData[p.id];
-          const diff = s.actual - p.quantity;
-          return `<tr>
-            <td style="font-family:var(--mono);font-size:11px;color:var(--text-dim)">${p.id}</td>
-            <td><strong>${p.name}</strong></td>
-            <td>${p.unit}</td>
-            <td style="text-align:right;font-family:var(--mono)">${p.quantity}</td>
-            <td style="text-align:right;font-family:var(--mono)">${s.actual}</td>
-            <td style="text-align:right" class="${diff > 0 ? 'audit-diff-pos' : 'audit-diff-neg'}">${diff > 0 ? '+' : ''}${diff}</td>
-            <td style="font-size:11px;color:var(--text-dim)">${s.note || '—'}</td>
-          </tr>`;
-        }).join('')}</tbody>
-      </table>` : `<div style="text-align:center;padding:20px;color:var(--green)">🎉 Tất cả sản phẩm đã kiểm đều khớp tồn kho!</div>`}
-  `;
-
-  resultCard.style.display = '';
-  resultCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-  const msg = diffItems.length > 0
-    ? `Kiểm kho hoàn tất: ${matched.length} khớp, ${diffItems.length} chênh lệch`
-    : `Kiểm kho hoàn tất: toàn bộ ${matched.length} sản phẩm khớp!`;
-  showToast(msg, diffItems.length > 0 ? 'info' : 'success');
-}
-
-function exportAuditExcel() {
-  if (_auditProducts.length === 0) { showToast('Chưa có dữ liệu kiểm kho', 'error'); return; }
-
-  const headers = ['Mã SP','Tên sản phẩm','Danh mục','Đơn vị','Tồn hệ thống','Tồn thực tế','Chênh lệch','Ghi chú','Trạng thái'];
-  const dataRows = _auditProducts.map(p => {
-    const s      = _auditData[p.id] || { actual: null, note: '' };
-    const actual = s.actual;
-    const diff   = actual !== null ? (actual - p.quantity) : '';
-    const status = actual === null ? 'Chưa nhập' : diff === 0 ? 'Khớp' : 'Chênh lệch';
-    return [p.id, p.name, p.category, p.unit, p.quantity,
-            actual !== null ? actual : '', diff, s.note || '', status];
-  });
-
-  const wb = XLSX.utils.book_new();
-
-  // === Sheet 1: Chi tiết kiểm kho ===
-  const titleRow  = [`PHIẾU KIỂM KHO — Ngày: ${new Date().toLocaleString('vi-VN')} — Người kiểm: ${currentUser?.fullName || currentUser?.id || '—'}`];
-  const wsData    = [titleRow, [], headers, ...dataRows];
-  const ws        = XLSX.utils.aoa_to_sheet(wsData);
-
-  ws['!cols'] = [{wch:14},{wch:30},{wch:16},{wch:10},{wch:14},{wch:14},{wch:12},{wch:28},{wch:14}];
-  ws['!merges'] = [{ s: {r:0,c:0}, e: {r:0,c:8} }];
-
-  // Title style
-  if (ws['A1']) ws['A1'].s = {
-    font: { bold: true, sz: 13, color: { rgb: 'FFFFFF' } },
-    fill: { fgColor: { rgb: '0F2444' } },
-    alignment: { horizontal: 'center', vertical: 'center' }
-  };
-
-  // Header row (row index 2)
-  headers.forEach((_, ci) => {
-    const addr = XLSX.utils.encode_cell({ r: 2, c: ci });
-    if (!ws[addr]) return;
-    ws[addr].s = {
-      font: { bold: true, color: { rgb: 'FFFFFF' } },
-      fill: { fgColor: { rgb: '1A3A6B' } },
-      alignment: { horizontal: 'center', vertical: 'center' },
-      border: { bottom: { style: 'medium', color: { rgb: '00D4FF' } } }
+  function kkHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer ' + (token || localStorage.getItem('wms_jwt') || '')
     };
-  });
+  }
 
-  // Data rows
-  dataRows.forEach((row, ri) => {
-    const status = row[8];
-    const rowBg  = status === 'Khớp' ? 'EFFFEF' : status === 'Chênh lệch' ? 'FFF0F0' : 'F7FAFF';
-    row.forEach((_, ci) => {
-      const addr = XLSX.utils.encode_cell({ r: ri + 3, c: ci });
-      if (!ws[addr]) return;
-      ws[addr].s = {
-        fill: { fgColor: { rgb: ri % 2 === 0 ? rowBg : 'FFFFFF' } },
-        alignment: { horizontal: (ci >= 4 && ci <= 6) ? 'right' : 'left', vertical: 'center' },
-        border: { bottom: { style: 'thin', color: { rgb: 'E0E8F0' } }, right: { style: 'thin', color: { rgb: 'E0E8F0' } } },
-        font: ci === 6 && typeof row[6] === 'number' && row[6] !== 0
-          ? { bold: true, color: { rgb: row[6] > 0 ? '00A050' : 'DD2244' } }
-          : {}
-      };
-    });
-  });
+  function statusBadge(status) {
+    const map = {
+      Draft:     { label: 'Đang kiểm', color: '#ffd32a' },
+      Completed: { label: 'Đã duyệt',  color: '#00e676' },
+      Cancelled: { label: 'Đã hủy',    color: '#ff4757' }
+    };
+    const s = map[status] || { label: status, color: '#7a90a8' };
+    return `<span style="font-size:11px;font-weight:600;padding:3px 8px;border-radius:4px;
+            background:${s.color}22;color:${s.color};border:1px solid ${s.color}44">${s.label}</span>`;
+  }
 
-  // === Sheet 2: Tóm tắt ===
-  const entered   = _auditProducts.filter(p => _auditData[p.id]?.actual !== null);
-  const matched   = entered.filter(p => _auditData[p.id].actual === p.quantity);
-  const diffItems = entered.filter(p => _auditData[p.id].actual !== p.quantity);
+  function diffBadge(diff) {
+    if (diff === 0) return `<span style="color:var(--text-dim)">—</span>`;
+    const color = diff > 0 ? '#00e676' : '#ff4757';
+    const sign  = diff > 0 ? '+' : '';
+    return `<span style="color:${color};font-weight:600">${sign}${diff}</span>`;
+  }
 
-  const summaryData = [
-    ['KẾT QUẢ KIỂM KHO'],
-    [''],
-    ['Chỉ số', 'Số lượng'],
-    ['Tổng sản phẩm kiểm tra', _auditProducts.length],
-    ['Đã nhập số liệu', entered.length],
-    ['Chưa nhập', _auditProducts.length - entered.length],
-    ['Khớp tồn kho', matched.length],
-    ['Chênh lệch', diffItems.length],
-    [''],
-    ['Người kiểm', currentUser?.fullName || currentUser?.id || '—'],
-    ['Ngày kiểm', new Date().toLocaleString('vi-VN')],
-  ];
-  const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
-  wsSummary['!cols'] = [{wch:28},{wch:18}];
-  if (wsSummary['A1']) wsSummary['A1'].s = { font: { bold: true, sz: 14, color: { rgb: '00D4FF' } } };
+  function kkToast(msg, type = 'info') {
+    showToast(msg, type); // dùng hàm toast chung của file chính
+  }
 
-  XLSX.utils.book_append_sheet(wb, wsSummary, 'Tóm tắt');
-  XLSX.utils.book_append_sheet(wb, ws, 'Chi tiết kiểm kho');
+  async function loadList(page = 1) {
+    currentPage = page;
+    const status = document.getElementById('kk-filter-status')?.value || '';
+    const params = new URLSearchParams({ page, pageSize: 10 });
+    if (status) params.set('status', status);
 
-  XLSX.writeFile(wb, `KiemKho_${new Date().toISOString().slice(0,10)}.xlsx`);
-  showToast('Đã xuất phiếu kiểm kho Excel!', 'success');
-}
+    try {
+      const res  = await fetch(`${BASE()}/api/stocktakes?${params}`, { headers: kkHeaders() });
+      if (res.status === 401) { kkToast('Phiên đăng nhập hết hạn', 'error'); return; }
+      const data = await res.json();
+
+      const badge = document.getElementById('kk-total-badge');
+      if (badge) badge.textContent = `Tổng: ${data.total} phiếu`;
+
+      const tbody = document.getElementById('kk-list-body');
+      if (!tbody) return;
+
+      if (!data.items || !data.items.length) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:30px;color:var(--text-dim)">Không có phiếu kiểm nào</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = data.items.map(s => `
+        <tr style="font-size:13px" onmouseenter="this.style.background='var(--surface2)'" onmouseleave="this.style.background=''">
+          <td style="font-family:var(--mono);color:var(--accent)">${s.id}</td>
+          <td style="color:var(--text-dim)">${new Date(s.createdAt).toLocaleString('vi-VN')}</td>
+          <td>${s.createdBy || '—'}</td>
+          <td style="text-align:center">${s.itemCount}</td>
+          <td style="color:var(--text-dim);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.note || '—'}</td>
+          <td style="text-align:center">${statusBadge(s.status)}</td>
+          <td style="text-align:center">
+            <button onclick="kiemkho.openDetail('${s.id}')"
+              style="padding:4px 12px;background:transparent;border:1px solid var(--accent);color:var(--accent);border-radius:4px;cursor:pointer;font-size:12px">
+              Xem / Nhập
+            </button>
+          </td>
+        </tr>
+      `).join('');
+
+      renderPagination(data.total, data.page, data.pageSize);
+    } catch (err) {
+      kkToast('Lỗi kết nối API: ' + err.message, 'error');
+    }
+  }
+
+  function renderPagination(total, page, pageSize) {
+    const pages = Math.ceil(total / pageSize);
+    const pg = document.getElementById('kk-pagination');
+    if (!pg) return;
+    if (pages <= 1) { pg.innerHTML = ''; return; }
+    pg.innerHTML = Array.from({ length: pages }, (_, i) => i + 1).map(p => `
+      <button onclick="kiemkho.loadList(${p})"
+        style="padding:4px 10px;background:${p===page?'var(--accent)':'var(--surface2)'};
+               color:${p===page?'#000':'var(--text)'};border:1px solid var(--border);
+               border-radius:4px;cursor:pointer;font-size:12px">${p}</button>
+    `).join('');
+  }
+
+  function openCreateModal() {
+    document.getElementById('kk-create-note').value = '';
+    document.getElementById('kk-create-scope').value = 'all';
+    document.getElementById('kk-create-category-row').style.display = 'none';
+    document.getElementById('kk-modal-create').style.display = 'flex';
+    loadCategories();
+  }
+
+  function closeCreateModal() {
+    document.getElementById('kk-modal-create').style.display = 'none';
+  }
+
+  function onScopeChange() {
+    const scope = document.getElementById('kk-create-scope').value;
+    document.getElementById('kk-create-category-row').style.display =
+      scope === 'category' ? 'block' : 'none';
+  }
+
+  async function loadCategories() {
+    try {
+      const res  = await fetch(`${BASE()}/api/products/categories`, { headers: kkHeaders() });
+      const cats = await res.json();
+      const sel  = document.getElementById('kk-create-category');
+      sel.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
+    } catch {}
+  }
+
+  async function submitCreate() {
+    const note  = document.getElementById('kk-create-note').value.trim();
+    const scope = document.getElementById('kk-create-scope').value;
+    let productIds = null;
+
+    if (scope === 'category') {
+      const cat = document.getElementById('kk-create-category').value;
+      const res  = await fetch(`${BASE()}/api/products?category=${encodeURIComponent(cat)}&pageSize=999`, { headers: kkHeaders() });
+      const data = await res.json();
+      productIds = data.items.map(p => p.id);
+      if (!productIds.length) { kkToast('Không có sản phẩm trong danh mục này', 'error'); return; }
+    }
+
+    if (scope === 'lowstock') {
+      const res  = await fetch(`${BASE()}/api/products/low-stock`, { headers: kkHeaders() });
+      const data = await res.json();
+      productIds = data.items.map(p => p.id);
+      if (!productIds.length) { kkToast('Không có sản phẩm nào sắp hết hàng', 'error'); return; }
+    }
+
+    try {
+      const res = await fetch(`${BASE()}/api/stocktakes`, {
+        method: 'POST',
+        headers: kkHeaders(),
+        body: JSON.stringify({ note: note || null, productIds })
+      });
+      const data = await res.json();
+      if (!res.ok) { kkToast(data.message || 'Lỗi tạo phiếu', 'error'); return; }
+
+      kkToast('✅ ' + data.message, 'success');
+      closeCreateModal();
+      loadList();
+      openDetail(data.id);
+    } catch (err) {
+      kkToast('Lỗi: ' + err.message, 'error');
+    }
+  }
+
+  async function openDetail(id) {
+    currentStockTakeId = id;
+    currentTab = 'all';
+
+    try {
+      const res  = await fetch(`${BASE()}/api/stocktakes/${id}`, { headers: kkHeaders() });
+      const data = await res.json();
+
+      document.getElementById('kk-detail-id').textContent = `Phiếu kiểm: ${data.id}`;
+      document.getElementById('kk-detail-meta').textContent =
+        `Tạo lúc ${new Date(data.createdAt).toLocaleString('vi-VN')} bởi ${data.createdBy}` +
+        (data.approvedBy ? ` • Duyệt bởi ${data.approvedBy}` : '');
+      document.getElementById('kk-detail-status-badge').innerHTML = statusBadge(data.status);
+
+      allItems = data.items || [];
+      renderDetailTable(allItems);
+      renderDetailActions(data.status, id);
+
+      document.getElementById('kk-tab-all').style.borderBottomColor  = 'var(--accent)';
+      document.getElementById('kk-tab-all').style.color               = 'var(--accent)';
+      document.getElementById('kk-tab-diff').style.borderBottomColor = 'transparent';
+      document.getElementById('kk-tab-diff').style.color              = 'var(--text-dim)';
+
+      document.getElementById('kk-modal-detail').style.display = 'flex';
+    } catch (err) {
+      kkToast('Lỗi tải chi tiết: ' + err.message, 'error');
+    }
+  }
+
+  function closeDetailModal() {
+    document.getElementById('kk-modal-detail').style.display = 'none';
+    loadList(currentPage);
+  }
+
+  function switchTab(tab) {
+    currentTab = tab;
+    const filtered = tab === 'diff'
+      ? allItems.filter(i => i.actualQuantity !== i.systemQuantity)
+      : allItems;
+    renderDetailTable(filtered);
+
+    document.getElementById('kk-tab-all').style.borderBottomColor  = tab==='all' ? 'var(--accent)' : 'transparent';
+    document.getElementById('kk-tab-all').style.color               = tab==='all' ? 'var(--accent)' : 'var(--text-dim)';
+    document.getElementById('kk-tab-diff').style.borderBottomColor = tab==='diff' ? 'var(--accent)' : 'transparent';
+    document.getElementById('kk-tab-diff').style.color              = tab==='diff' ? 'var(--accent)' : 'var(--text-dim)';
+  }
+
+  function renderDetailTable(items) {
+    const tbody = document.getElementById('kk-detail-body');
+    if (!items.length) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-dim)">Không có dữ liệu</td></tr>`;
+      return;
+    }
+    tbody.innerHTML = items.map(i => `
+      <tr style="border-top:1px solid var(--border);font-size:13px">
+        <td style="padding:8px 10px;font-family:var(--mono);color:var(--text-dim)">${i.productId}</td>
+        <td style="padding:8px 10px">${i.productName}</td>
+        <td style="padding:8px 10px;text-align:center">${i.systemQuantity} ${i.productUnit}</td>
+        <td style="padding:8px 10px;text-align:center">
+          <input id="kk-item-${i.id}" type="number" min="0" value="${i.actualQuantity}"
+            onchange="kiemkho.saveItem(${i.id}, this)"
+            style="width:70px;background:var(--surface2);color:var(--text);border:1px solid var(--border);
+                   border-radius:4px;padding:4px 8px;text-align:center;font-size:13px">
+        </td>
+        <td style="padding:8px 10px;text-align:center">${diffBadge(i.difference)}</td>
+        <td style="padding:8px 10px">
+          <input id="kk-note-${i.id}" type="text" value="${i.note || ''}" placeholder="Ghi chú..."
+            onchange="kiemkho.saveItem(${i.id}, null, this)"
+            style="width:140px;background:var(--surface2);color:var(--text);border:1px solid var(--border);
+                   border-radius:4px;padding:4px 8px;font-size:12px">
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  const debounceMap = {};
+  async function saveItem(itemId, qtyInput, noteInput) {
+    clearTimeout(debounceMap[itemId]);
+    debounceMap[itemId] = setTimeout(async () => {
+      const qtyEl  = document.getElementById(`kk-item-${itemId}`);
+      const noteEl = document.getElementById(`kk-note-${itemId}`);
+      const actualQty = parseInt(qtyEl?.value ?? 0);
+      const note      = noteEl?.value?.trim() ?? '';
+
+      try {
+        const res = await fetch(
+          `${BASE()}/api/stocktakes/${currentStockTakeId}/items/${itemId}`,
+          {
+            method: 'PUT',
+            headers: kkHeaders(),
+            body: JSON.stringify({ actualQuantity: actualQty, note: note || null })
+          }
+        );
+        const data = await res.json();
+        if (!res.ok) { kkToast(data.message || 'Lỗi lưu', 'error'); return; }
+
+        const idx = allItems.findIndex(i => i.id === itemId);
+        if (idx !== -1) {
+          allItems[idx].actualQuantity = data.actualQuantity;
+          allItems[idx].difference     = data.difference;
+          allItems[idx].note           = data.note;
+        }
+
+        const row = qtyEl?.closest('tr');
+        if (row) {
+          const diffCell = row.querySelectorAll('td')[4];
+          if (diffCell) diffCell.innerHTML = diffBadge(data.difference);
+        }
+      } catch (err) {
+        kkToast('Lỗi mạng: ' + err.message, 'error');
+      }
+    }, 600);
+  }
+
+  function renderDetailActions(status, id) {
+    const container = document.getElementById('kk-detail-actions');
+    const isAdmin   = (currentUser?.role || localStorage.getItem('wms_role')) === 'Admin';
+
+    if (status === 'Draft') {
+      container.innerHTML = `
+        <span style="font-size:12px;color:var(--text-dim);margin-right:auto">
+          Thay đổi số lượng thực tế → tự động lưu
+        </span>
+        ${isAdmin ? `
+          <button onclick="kiemkho.confirmApprove(false)"
+            style="padding:7px 16px;background:transparent;border:1px solid var(--red);color:var(--red);border-radius:6px;cursor:pointer;font-size:13px">
+            Hủy phiếu
+          </button>
+          <button onclick="kiemkho.confirmApprove(true)" class="btn btn-primary"
+            style="background:var(--green);color:#000;border:none">
+            ✓ Duyệt & Điều chỉnh tồn
+          </button>
+        ` : ''}
+      `;
+    } else {
+      container.innerHTML = `
+        <span style="font-size:13px;color:var(--text-dim);margin-right:auto">
+          Phiếu đã ${status === 'Completed' ? 'được duyệt' : 'bị hủy'} — chỉ đọc
+        </span>
+        <button onclick="kiemkho.closeDetailModal()"
+          style="padding:7px 16px;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:13px">
+          Đóng
+        </button>
+      `;
+      document.querySelectorAll('#kk-detail-body input').forEach(el => el.disabled = true);
+    }
+  }
+
+  function confirmApprove(approve) {
+    const action = approve
+      ? 'Duyệt phiếu sẽ tự động điều chỉnh tồn kho theo số liệu thực tế. Tiếp tục?'
+      : 'Hủy phiếu? Tồn kho sẽ KHÔNG bị thay đổi.';
+    if (!confirm(action)) return;
+    doApprove(approve);
+  }
+
+  async function doApprove(approve) {
+    try {
+      const res = await fetch(
+        `${BASE()}/api/stocktakes/${currentStockTakeId}/approve`,
+        {
+          method: 'POST',
+          headers: kkHeaders(),
+          body: JSON.stringify({ approve })
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) { kkToast(data.message || 'Lỗi', 'error'); return; }
+
+      kkToast('✅ ' + data.message, 'success');
+
+      if (approve && data.adjustments?.length) {
+        const lines = data.adjustments.map(a =>
+          `• ${a.productName}: ${a.oldQty} → ${a.newQty} (${a.difference > 0 ? '+' : ''}${a.difference})`
+        ).join('\n');
+        alert('Điều chỉnh tồn kho:\n\n' + lines);
+      }
+
+      closeDetailModal();
+    } catch (err) {
+      kkToast('Lỗi: ' + err.message, 'error');
+    }
+  }
+
+  return {
+    loadList,
+    openCreateModal, closeCreateModal, onScopeChange, submitCreate,
+    openDetail, closeDetailModal, switchTab, saveItem,
+    confirmApprove
+  };
+})();
 
 // ══════════════════════════════════════════════════════════
 //  KHỞI ĐỘNG
